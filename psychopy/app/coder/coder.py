@@ -1310,7 +1310,9 @@ class CoderFrame(wx.Frame):
         wx.EVT_MENU(self, self.IDs.runFile,  self.runFile)
         self.toolsMenu.Append(self.IDs.stopFile, "Stop\t%s" %self.app.keys['stopScript'], "Stop the current script")
         wx.EVT_MENU(self, self.IDs.stopFile,  self.stopFile)
-
+        newId = wx.NewId()
+        self.toolsMenu.Append(newId, "IPython Notebook (experimental)" , "Launch an IPython notebook (in browser)")
+        wx.EVT_MENU(self, newId,  self.launchIPythonNotebook)
         self.toolsMenu.AppendSeparator()
         self.toolsMenu.Append(self.IDs.openUpdater, "PsychoPy updates...", "Update PsychoPy to the latest, or a specific, version")
         wx.EVT_MENU(self, self.IDs.openUpdater,  self.app.openUpdater)
@@ -1637,7 +1639,8 @@ class CoderFrame(wx.Frame):
         self.app.allFrames.remove(self)
         self.Destroy()
         self.app.coder=None
-
+    def launchIPythonNotebook(self, evt=None):
+        self.scriptProcessID = wx.Execute("ipython notebook --pylab inline", wx.EXEC_ASYNC| wx.EXEC_MAKE_GROUP_LEADER, self.scriptProcess)
     def fileNew(self, event=None, filepath=""):
         self.setCurrentDoc(filepath)
     def fileReload(self, event, filename=None, checkSave=False):

@@ -75,6 +75,7 @@ else:
                                         'serial','IPython',
                                         'egi','labjack','pylink',#handy external science interfaces
                                         'pyxid','pycrsltd',
+                                        'tornado','zmq',
                                         ],
                                       iconfile='psychopy/app/Resources/psychopy.icns',
                                       plist=dict(
