@@ -1,4 +1,3 @@
-import wx
 """This is for general purpose dialogs/widgets, not related to particular functionality
 
 MessageDialog:
@@ -10,6 +9,8 @@ ListWidget:
     A ctrl that takes a list of dictionaries (with identical fields) and allows
     the user to add/remove entries. e.g. expInfo control
 """
+from psychopy import warnings
+import wx
 
 class MessageDialog(wx.Dialog):
     """For some reason the wx builtin message dialog has some issues on Mac OSX
@@ -49,6 +50,11 @@ class MessageDialog(wx.Dialog):
 
 
 from wx.lib.newevent import NewEvent
+
+try:
+    from agw import customtreectrl as TreeCtrl
+except ImportError: # if it's not there locally, try the wxPython lib.
+    import wx.lib.agw.customtreectrl as TreeCtrl
 
 # Event for GlobSizer-----------------------------------------------------------------------
 (GBSizerExLayoutEvent, EVT_GBSIZEREX_LAYOUT) = NewEvent()
@@ -510,6 +516,26 @@ class ListWidget(GlobSizer):
         """This isn't implemented yet - set every control to have the same tooltip?
         """
         pass
+
+class ErrorHandler(warnings._BaseErrorHandler):
+    """A dialog for handling PsychoPy Warnings and Python Exceptions
+    """
+    def __init__(self):
+        """Create the handler, assign and keep track of previous stderr
+        """
+        #to do with the
+        self.errList = []
+        self.autoFlush=True
+    def flush(self):
+        """Process the list
+        of errs/warnings that could be strings (Python Exceptions) or dicts
+        such as:
+            {'code':1001,'obj':stim, 'msg':aString, 'trace':listOfStrings}
+        """
+        for err in self.errList:
+            print err
+        self.errList = []
+
 if __name__=='__main__':
     app = wx.PySimpleApp()
     dlg = wx.Dialog(None)

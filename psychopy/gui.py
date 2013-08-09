@@ -243,11 +243,11 @@ def fileSaveDlg(initFilePath="", initFileName="",
             #"pickled files (*.pickle, *.pkl)|*.pickle" \
             #"shelved files (*.shelf)|*.shelf"
     try:
-        dlg = wx.FileDialog(None,prompt, 
+        dlg = wx.FileDialog(None,prompt,
                           initFilePath, initFileName, allowed, wx.SAVE)
     except:
         tmpApp = wx.PySimpleApp()
-        dlg = wx.FileDialog(None,prompt, 
+        dlg = wx.FileDialog(None,prompt,
                           initFilePath, initFileName, allowed, wx.SAVE)
     if dlg.ShowModal() == OK:
         #get names of images and their directory
