@@ -437,6 +437,7 @@ class FlowPanel(wx.ScrolledWindow):
         endII = self.gapMidPoints.index(max(self.entryPointPosList))
         if loopDlg.OK:
             handler=loopDlg.currentHandler
+            print 'gotThisHandler', handler, handler.params
             self.frame.exp.flow.addLoop(handler,
                 startPos=startII, endPos=endII)
             self.frame.addToUndoStack("ADD Loop `%s` to Flow" %handler.params['name'].val)
@@ -484,7 +485,7 @@ class FlowPanel(wx.ScrolledWindow):
             prevLoop=loop
             if loopDlg.params['loopType'].val=='staircase':
                 loop= loopDlg.stairHandler
-            elif loopDlg.params['loopType'].val=='interleaved stairs':
+            elif loopDlg.params['loopType'].val=='interleaved staircases':
                 loop= loopDlg.multiStairHandler
             else:
                 loop=loopDlg.trialHandler #['random','sequential', 'fullRandom', ]
@@ -2427,6 +2428,8 @@ class DlgLoopProperties(_BaseParamsDlg):
         self.ctrlSizer= wx.BoxSizer(wx.VERTICAL)
         self.conditions=None
         self.conditionsFile=None
+        if loop is not None:
+            print 'stariting loopwith:', loop.type, loop.params['conditionsFile']
         #create a valid new name; save old name in case we need to revert
         defaultName = 'trials'
         oldLoopName = defaultName
@@ -2456,8 +2459,10 @@ class DlgLoopProperties(_BaseParamsDlg):
             self.stairHandler = self.currentHandler = loop
             self.currentType='staircase'
         elif loop.type=='MultiStairHandler':
+            self.conditions=loop.params['conditions'].val
+            self.conditionsFile=loop.params['conditionsFile'].val
             self.multiStairHandler = self.currentHandler = loop
-            self.currentType='interleaved staircase'
+            self.currentType='interleaved staircases'
         elif loop.type=='QuestHandler':
             pass # what to do for quest?
         self.params['name']=self.currentHandler.params['name']
@@ -2491,7 +2496,7 @@ class DlgLoopProperties(_BaseParamsDlg):
         #otherwise it will be left as a summary string, not a conditions
         if self.currentHandler.params.has_key('conditionsFile'):
             self.currentHandler.params['conditions'].val=self.conditions
-
+        print 'finishedDlg', self.currentHandler.params['conditionsFile'].val, self.currentHandler.params['conditions'].val
     def makeGlobalCtrls(self):
         for fieldName in ['name','loopType']:
             container=wx.BoxSizer(wx.HORIZONTAL)#to put them in
@@ -2574,6 +2579,7 @@ class DlgLoopProperties(_BaseParamsDlg):
             elif fieldName=='conditions':
                 if handler.params.has_key('conditions'):
                     text=self.getTrialsSummary(handler.params['conditions'].val)
+                    print 'gotTrailsSumary', text
                 else:
                     text = """No parameters set (select a file above)"""
                 ctrls = ParamCtrls(self, 'conditions',text,noCtrls=True)#we'll create our own widgets
@@ -2696,6 +2702,7 @@ class DlgLoopProperties(_BaseParamsDlg):
                             defaultDir=expFolder)
         if dlg.ShowModal() == wx.ID_OK:
             newFullPath = dlg.GetPath()
+            print 'thisisnewFullPath', newFullPath
             if self.conditionsFile:
                 oldFullPath = os.path.abspath(os.path.join(expFolder, self.conditionsFile))
                 isSameFilePathAndName = (newFullPath==oldFullPath)
@@ -2724,7 +2731,7 @@ class DlgLoopProperties(_BaseParamsDlg):
                 self.conditionsFile = self.conditionsFileOrig
                 self.conditions = self.conditionsOrig
                 return # no update or display changes
-
+            print 'printingConds', self.conditions, self.condNamesInFile
             duplCondNames = []
             if len(self.condNamesInFile):
                 for condName in self.condNamesInFile:

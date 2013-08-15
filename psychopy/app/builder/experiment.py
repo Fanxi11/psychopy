@@ -755,7 +755,7 @@ class MultiStairHandler:
         self.params['endPoints']=Param(endPoints,valType='num',
             hint='Where to loop from and to (see values currently shown in the flow view)')
         self.params['conditions']=Param(conditions, valType='str', updates=None, allowedUpdates=None,
-            hint="A list of dictionaries describing the differences between each condition")
+            hint="A list of dictionaries describing the differences between each staircase")
         self.params['conditionsFile']=Param(conditionsFile, valType='str', updates=None, allowedUpdates=None,
             hint="An xlsx or csv file specifying the parameters for each condition")
     def writeInitCode(self,buff):
@@ -764,7 +764,7 @@ class MultiStairHandler:
         #write the code
         buff.writeIndentedLines("\n# set up handler to look after randomisation of trials etc\n")
         buff.writeIndentedLines("conditions = data.importConditions(%s)" %self.params['conditionsFile'])
-        buff.writeIndented("%(name)s = data.MultiStairHandler(stairType=%(stairType)s, name='%(name)s,'\n" %(self.params))
+        buff.writeIndented("%(name)s = data.MultiStairHandler(stairType=%(stairType)s, name='%(name)s',\n" %(self.params))
         buff.writeIndented("    nTrials=%(nReps)s,\n" %self.params)
         buff.writeIndented("    conditions=conditions,\n")
         buff.writeIndented("    originPath=%s" %repr(self.exp.expPath))
@@ -776,7 +776,7 @@ class MultiStairHandler:
     def writeLoopStartCode(self,buff):
         #work out a name for e.g. thisTrial in trials:
         buff.writeIndented("\n")
-        buff.writeIndented("for level, condition in %s:\n" %(self.thisName, self.params['name']))
+        buff.writeIndented("for level, condition in %s:\n" %(self.params['name']))
         buff.setIndentLevel(1, relative=True)
         buff.writeIndented("currentLoop = %s\n" %(self.params['name']))
     def writeLoopEndCode(self,buff):
