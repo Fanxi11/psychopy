@@ -166,7 +166,7 @@ class ExperimentHandler(object):
             trial = loop.thisTrial
             if hasattr(trial,'items'):#is a TrialList object or a simple dict
                 for attr,val in trial.items():
-                    if attr not in self._paramNamesSoFar: 
+                    if attr not in self._paramNamesSoFar:
                         self._paramNamesSoFar.append(attr)
                     names.append(attr)
                     vals.append(val)
@@ -184,19 +184,13 @@ class ExperimentHandler(object):
                 vals.append(None)
         #MultiStairHandler
         elif hasattr(loop, 'staircases'):
-            #get intensity
-            names.append('intensity')
-            if len(loop.currentStaircase.intensities)>0:
-                vals.append(loop.currentStaircase.intensities[-1])
-            #get ino about the conditions of this staircase
-            trial = loop.currentStaircase.condition
-            if hasattr(trial,'items'):#is a TrialList object or a simple dict
-                for attr,val in trial.items():
-                    if attr not in self._paramNamesSoFar: 
-                        self._paramNamesSoFar.append(attr)
-                    names.append(attr)
-                    vals.append(val)
-            
+            thisStair = loop.currentStaircase
+            stairNames, stairVals = self._getLoopInfo(thisStair)
+            print stairNames, stairVals
+            for name, val in zip(stairNames, stairVals):
+                names.append(name)
+                vals.append(val)
+
         return names, vals
     def addData(self, name, value):
         """Add the data with a given name to the current experiment.
@@ -282,8 +276,7 @@ class ExperimentHandler(object):
                 f.write(u'%s%s' %(heading,delim))
             f.write('\n')
         #write the data for each entry
-        
-        print 'nEntries:', len(self.entries)
+
         for entry in self.entries:
             for name in names:
                 entry.keys()
@@ -1504,7 +1497,7 @@ class StairHandler(_BaseTrialHandler):
         self._exp = None#the experiment handler that owns me!
     def __iter__(self):
         return self
-    def addResult(self, result, intensity=None):
+    def addResponse(self, result, intensity=None):
         """Add a 1 or 0 to signify a correct/detected or incorrect/missed trial
 
         This is essential to advance the staircase to a new intensity level!
@@ -1540,7 +1533,7 @@ class StairHandler(_BaseTrialHandler):
         if self.getExp() != None:#update the experiment handler too
             self.getExp().addData('result', result)
         self.calculateNextIntensity()
-        
+
     def addOtherData(self, dataName, value):
         """Add additonal data to the handler, to be tracked alongside the result
         data but not affecting the value of the staircase
@@ -1550,7 +1543,7 @@ class StairHandler(_BaseTrialHandler):
                 self.otherData[dataName]=[None]*(self.thisTrialN-1) #might have run trals already
             else:
                 self.otherData[dataName]=[]
-        #then add current value                
+        #then add current value
         self.otherData[dataName].append(value)
         #add the current data to experiment if poss
         if self.getExp() != None:#update the experiment handler too
@@ -1558,7 +1551,7 @@ class StairHandler(_BaseTrialHandler):
     def addData(self, result, intensity=None):
         """Deprecated since 1.79.00: This function name was ambiguous. Please use one of
         these instead:
-            .addResult(result, intensity)
+            .addResponse(result, intensity)
             .addOtherData('dataName', value')
         """
         self.addResult(result, intensity)
@@ -2370,11 +2363,18 @@ class MultiStairHandler(_BaseTrialHandler):
         self.currentStaircase = self.thisPassRemaining.pop(0)#take the first and remove it
         self._nextIntensity = self.currentStaircase._nextIntensity#gets updated by self.addData()
         #return value
-        if self.finished==False:
+        if not self.finished:
             #inform experiment of the condition (but not intensity, that might be overridden by user)
             if self.getExp() != None:
-                for key, value in self.currentStaircase.condition.getitems():
-                    self.getExp().addData(key, value)
+                exp = self.getExp()
+                stair = self.currentStaircase
+                for key, value in stair.condition.items():
+                    exp.addData("%s.%s" %(self.name, key), value)
+                exp.addData('%s.thisIndex' %self.name, self.conditions.index(stair.condition))
+                exp.addData('%s.thisRepN' %self.name, stair.thisTrialN+2)
+                exp.addData('%s.direction' %self.name, stair.currentDirection)
+                exp.addData('%s.stepSize' %self.name, stair.stepSizeCurrent)
+                exp.addData('%s.stepType' %self.name, stair.stepType)
             return self._nextIntensity, self.currentStaircase.condition
         else:
             raise StopIteration
@@ -2396,23 +2396,25 @@ class MultiStairHandler(_BaseTrialHandler):
         try:
             self.currentStaircase.next()
         except:
-            print self.runningStaircases
             self.runningStaircases.remove(self.currentStaircase)
         self.totalTrials+=1
-    def addOtherData(self, name, value:
+    def addOtherData(self, name, value):
+        """Add some data about the curent trial that will not be used to control the
+        staircase(s) such as reaction time data
+        """
         self.data.addData(name, value)
         if self.getExp() != None:#update the experiment handler too
             self.getExp().addData(name, value)
     def addData(self, result, intensity=None):
         """Deprecated 1.79.00: It was ambiguous whether you were adding the response
         (0 or 1) or some other data concerning the trial so there is now a pair
-        of explicit methods: 
+        of explicit methods:
             addResponse(corr,intensity) #some data that alters the next trial value
             addOtherData('RT', reactionTime) #some other data that won't control staircase
         """
         self.addResponse(result, intensity)
         if type(result) in [str, unicode]:
-            raise TypeError, "MultiStairHandler.addData should only receive corr/incorr. Use .addOtherData('datName',val)
+            raise TypeError, "MultiStairHandler.addData should only receive corr/incorr. Use .addOtherData('datName',val)"
     def saveAsPickle(self, fileName):
         """Saves a copy of self (with data) to a pickle file.
 

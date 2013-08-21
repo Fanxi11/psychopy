@@ -790,7 +790,7 @@ class MultiStairHandler:
         buff.writeIndented("\n")
         #save data
         if self.exp.settings.params['Save excel file'].val:
-            buff.writeIndented("%(name)s.saveAsExcel(filename + '.xlsx')\n")
+            buff.writeIndented("%(name)s.saveAsExcel(filename + '.xlsx')\n" %self.params)
         if self.exp.settings.params['Save csv file'].val:
             buff.writeIndented("%(name)s.saveAsText(filename + '%(name)s.csv', delim=',')\n" %self.params)
     def getType(self):
