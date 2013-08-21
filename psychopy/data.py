@@ -186,7 +186,6 @@ class ExperimentHandler(object):
         elif hasattr(loop, 'staircases'):
             thisStair = loop.currentStaircase
             stairNames, stairVals = self._getLoopInfo(thisStair)
-            print stairNames, stairVals
             for name, val in zip(stairNames, stairVals):
                 names.append(name)
                 vals.append(val)
@@ -1554,7 +1553,7 @@ class StairHandler(_BaseTrialHandler):
             .addResponse(result, intensity)
             .addOtherData('dataName', value')
         """
-        self.addResult(result, intensity)
+        self.addResponse(result, intensity)
 
     def calculateNextIntensity(self):
         """based on current intensity, counter of correct responses and current direction"""
@@ -2402,9 +2401,7 @@ class MultiStairHandler(_BaseTrialHandler):
         """Add some data about the curent trial that will not be used to control the
         staircase(s) such as reaction time data
         """
-        self.data.addData(name, value)
-        if self.getExp() != None:#update the experiment handler too
-            self.getExp().addData(name, value)
+        self.currentStaircase.addOtherData(name, value)
     def addData(self, result, intensity=None):
         """Deprecated 1.79.00: It was ambiguous whether you were adding the response
         (0 or 1) or some other data concerning the trial so there is now a pair

@@ -187,7 +187,7 @@ class KeyboardComponent(BaseComponent):
                 #data belongs to a Staircase-type of object
                 if self.params['storeCorrect'].val==True:
                     buff.writeIndented("%s.addResponse(%s.corr)\n" %(currLoop.params['name'], name))
-                    buff.writeIndented("%s.addOtherData(%s.rt)\n" %(currLoop.params['name'], name))
+                    buff.writeIndented("%s.addOtherData('%s.rt', %s.rt)\n" %(currLoop.params['name'], name, name))
             else:
                 #always add keys
                 buff.writeIndented("%s.addData('%s.keys',%s.keys)\n" \
