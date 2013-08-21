@@ -182,13 +182,6 @@ class ExperimentHandler(object):
                 vals.append(loop.intensities[-1])
             else:
                 vals.append(None)
-        #MultiStairHandler
-        elif hasattr(loop, 'staircases'):
-            thisStair = loop.currentStaircase
-            stairNames, stairVals = self._getLoopInfo(thisStair)
-            for name, val in zip(stairNames, stairVals):
-                names.append(name)
-                vals.append(val)
 
         return names, vals
     def addData(self, name, value):
@@ -1530,7 +1523,7 @@ class StairHandler(_BaseTrialHandler):
 
         #add the current data to experiment if poss
         if self.getExp() != None:#update the experiment handler too
-            self.getExp().addData('result', result)
+            self.getExp().addData(self.name+".response", result)
         self.calculateNextIntensity()
 
     def addOtherData(self, dataName, value):
@@ -2031,7 +2024,7 @@ class QuestHandler(StairHandler):
         self.originPath, self.origin = self.getOriginPathAndFile(originPath)
         self._exp=None
 
-    def addResult(self, result, intensity=None):
+    def addResponse(self, result, intensity=None):
         """Add a 1 or 0 to signify a correct/detected or incorrect/missed trial
 
         Supplying an `intensity` value here indicates that you did not use the
@@ -2050,8 +2043,9 @@ class QuestHandler(StairHandler):
         self._quest.update(intensity, result)
         # Update other things
         self.data.append(result)
-        if self.getExp()!=None:
-            self.getExp().addData('response', result)
+        #add the current data to experiment if poss
+        if self.getExp() != None:#update the experiment handler too
+            self.getExp().addData(self.name+".response", result)
         self.calculateNextIntensity()
     def importData(self, intensities, results):
         """import some data which wasn't previously given to the quest algorithm"""
@@ -2369,11 +2363,13 @@ class MultiStairHandler(_BaseTrialHandler):
                 stair = self.currentStaircase
                 for key, value in stair.condition.items():
                     exp.addData("%s.%s" %(self.name, key), value)
-                exp.addData('%s.thisIndex' %self.name, self.conditions.index(stair.condition))
-                exp.addData('%s.thisRepN' %self.name, stair.thisTrialN+2)
-                exp.addData('%s.direction' %self.name, stair.currentDirection)
-                exp.addData('%s.stepSize' %self.name, stair.stepSizeCurrent)
-                exp.addData('%s.stepType' %self.name, stair.stepType)
+                exp.addData(self.name+'.thisIndex', self.conditions.index(stair.condition))
+                exp.addData(self.name+'.thisRepN', stair.thisTrialN+1)
+                exp.addData(self.name+'.thisN', self.totalTrials)
+                exp.addData(self.name+'.direction', stair.currentDirection)
+                exp.addData(self.name+'.stepSize', stair.stepSizeCurrent)
+                exp.addData(self.name+'.stepType', stair.stepType)
+                exp.addData(self.name+'.intensity', self._nextIntensity)
             return self._nextIntensity, self.currentStaircase.condition
         else:
             raise StopIteration
@@ -2396,6 +2392,9 @@ class MultiStairHandler(_BaseTrialHandler):
             self.currentStaircase.next()
         except:
             self.runningStaircases.remove(self.currentStaircase)
+        #add the current data to experiment if poss
+        if self.getExp() != None:#update the experiment handler too
+            self.getExp().addData(self.name+".response", result)
         self.totalTrials+=1
     def addOtherData(self, name, value):
         """Add some data about the curent trial that will not be used to control the
