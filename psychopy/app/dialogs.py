@@ -11,6 +11,7 @@ ListWidget:
 """
 from psychopy import warnings
 import wx
+import sys
 
 class MessageDialog(wx.Dialog):
     """For some reason the wx builtin message dialog has some issues on Mac OSX
@@ -523,27 +524,34 @@ class ListWidget(GlobSizer):
 class ErrorHandler(warnings._BaseErrorHandler):
     """A dialog for handling PsychoPy Warnings and Python Exceptions
     """
-    def __init__(self):
+    def __init__(self, parent):
         """Create the handler, assign and keep track of previous stderr
         """
         #to do with the
         self.errList = []
         self.autoFlush=True
+        self.parent = parent
+
     def flush(self):
         """Process the list
         of errs/warnings that could be strings (Python Exceptions) or dicts
         such as:
             {'code':1001,'obj':stim, 'msg':aString, 'trace':listOfStrings}
         """
+        self.dlg = wx.Window(self.parent, title="Warnings found")
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
         for err in self.errList:
-            print err
+            self._showWarning(err)
+        self.dlg.SetSizerAndFit(self.sizer)
+        self.ShowModal()
         self.errList = []
+    def _showWarning(self, warning):
+        textCtrl = wx.TextCtrl(self.parent, value=unicode(err))
+        self.sizer.Add(textCtrl)
 
 if __name__=='__main__':
     app = wx.PySimpleApp()
-    dlg = wx.Dialog(None)
-    init = [{'Field':'Participant','Default':''},{'Field':'Session','Default':'001'}]
-    listCtrl = ListWidget(dlg, value = init, order=['Field','Default'])
-    dlg.SetSizerAndFit(listCtrl.grid)
-    dlg.ShowModal()
-
+    errHandler = ErrorHandler(parent=app)
+    sys.stderr = errHandler
+    warnings.warn(1001, obj=app)
+    errHandler.flush() #does our dialog appear
