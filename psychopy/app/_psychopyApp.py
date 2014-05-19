@@ -17,7 +17,7 @@ except ImportError: # if it's not there locally, try the wxPython lib.
     import wx.lib.agw.advancedsplash as AS
 #NB keep imports to a minimum here because splash screen has not yet shown
 #e.g. coder and builder are imported during app.__init__ because they take a while
-from psychopy import preferences, logging#needed by splash screen for the path to resources/psychopySplash.png
+from psychopy import preferences, logging, alerts#needed by splash screen for the path to resources/psychopySplash.png
 from psychopy.app import connections
 import sys, os, threading
 
@@ -105,8 +105,13 @@ class PsychoPyApp(wx.App):
         #LONG IMPORTS - these need to be imported after splash screen starts (they're slow)
         #but then that they end up being local so keep track in self
         if splash: splash.SetText("  Loading PsychoPy2..."+uidRootFlag)
-        from psychopy import compatibility
+        from psychopy import compatibility, alerts
         from psychopy.app import coder, builder, dialogs, wxIDs, urls #import coder and builder here but only use them later
+
+        #catch any errors in the AlertHandler
+        self.alertHandler = dialogs.AlertDialog(parent=None, title="PsychoPy Alerts")
+        self.alertHandler.setStdHandler()
+
         self.keys = self.prefs.keys
         self.prefs.pageCurrent = 0  # track last-viewed page of prefs, to return there
         self.IDs=wxIDs
@@ -421,6 +426,8 @@ class PsychoPyApp(wx.App):
         logging.debug('PsychoPyApp: Showing prefs dlg')
         prefsDlg = PreferencesDlg(app=self)
         prefsDlg.Show()
+        alerts.alert(2001)
+        alerts.flush()
 
     def showAbout(self, event):
         logging.debug('PsychoPyApp: Showing about dlg')
@@ -454,7 +461,6 @@ let me/us know at psychopy-users@googlegroups.com"""
         info.AddDocWriter('Rebecca Sharman')
         if not self.testMode:
             wx.AboutBox(info)
-
     def followLink(self, event=None, url=None):
         """Follow either an event id (which should be a key to a url defined in urls.py)
         or follow a complete url (a string beginning "http://")

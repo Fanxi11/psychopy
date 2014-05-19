@@ -9,8 +9,11 @@ ListWidget:
     A ctrl that takes a list of dictionaries (with identical fields) and allows
     the user to add/remove entries. e.g. expInfo control
 """
-from psychopy import warnings
+from psychopy import alerts, logging
 import wx
+import wx.lib.agw.customtreectrl as CTC
+import wx.lib.agw.hypertreelist as HTC
+
 import sys
 
 class MessageDialog(wx.Dialog):
@@ -54,11 +57,6 @@ class MessageDialog(wx.Dialog):
 
 
 from wx.lib.newevent import NewEvent
-
-try:
-    from agw import customtreectrl as TreeCtrl
-except ImportError: # if it's not there locally, try the wxPython lib.
-    import wx.lib.agw.customtreectrl as TreeCtrl
 
 # Event for GlobSizer-----------------------------------------------------------------------
 (GBSizerExLayoutEvent, EVT_GBSIZEREX_LAYOUT) = NewEvent()
@@ -521,37 +519,95 @@ class ListWidget(GlobSizer):
         """
         pass
 
-class ErrorHandler(warnings._BaseErrorHandler):
-    """A dialog for handling PsychoPy Warnings and Python Exceptions
+class AlertDialog(wx.Dialog, alerts._BaseAlertHandler):
+    """A dialog for handling PsychoPy alerts and Python Exceptions
     """
-    def __init__(self, parent):
-        """Create the handler, assign and keep track of previous stderr
+    """The BaseErrorHandler defines a method self.receiveAlert()
+    which maintains a list of dicts:
+        {'code':code,'obj':obj, 'msg':msg, 'trace':trace}
         """
-        #to do with the
-        self.errList = []
+    def __init__(self,parent=None, title=None):
+        if title==None: title=type
+        self.alertList = []
         self.autoFlush=True
         self.parent = parent
 
+        wx.Dialog.__init__(self, parent, -1, title,
+                          wx.DefaultPosition, size=[600,600])
+        self.panel = wx.Panel(self, -1)
+        self.mainSizer = wx.BoxSizer(wx.VERTICAL)
+#        self.tree = CTC.CustomTreeCtrl(self, 1, pos=wx.DefaultPosition,size=[400,400],
+#                           agwStyle=wx.TR_DEFAULT_STYLE | CTC.TR_HIDE_ROOT | CTC.TR_HAS_BUTTONS)
+        self.tree = HTC.HyperTreeList(self,1,pos=wx.DefaultPosition,
+                           agwStyle=wx.TR_DEFAULT_STYLE | wx.TR_HIDE_ROOT | wx.TR_HAS_BUTTONS | HTC.TR_NO_HEADER)
+        self.tree.AddColumn("Main column")
+        self.treeRoot = self.tree.AddRoot('Alerts')
+        self.mainSizer.Add(self.tree, 1, wx.EXPAND)
+        self._addButtons()
+        self.panel.SetSizerAndFit(self.mainSizer)
+
+    def _addButtons(self):
+        btnSizer = wx.StdDialogButtonSizer()
+        self.okBtn=wx.Button(self,wx.ID_OK,'OK')
+        self.okBtn.SetDefault()
+        self.Bind(wx.EVT_BUTTON, self.onButton, id=wx.ID_OK)
+        btnSizer.Add(self.okBtn, wx.ALIGN_RIGHT)
+        btnSizer.Realize()
+        self.mainSizer.Add(btnSizer, 1, wx.EXPAND)
+    def OnSelChanged(self, event):
+        '''Method called when selected item is changed
+        '''
+        # Get the selected item object
+        item =  event.GetItem()
+        # Display the selected item text in the text widget
+        self.display.SetLabel(self.tree.GetItemText(item))
     def flush(self):
         """Process the list
         of errs/warnings that could be strings (Python Exceptions) or dicts
         such as:
             {'code':1001,'obj':stim, 'msg':aString, 'trace':listOfStrings}
         """
-        self.dlg = wx.Window(self.parent, title="Warnings found")
-        self.sizer = wx.BoxSizer(wx.VERTICAL)
-        for err in self.errList:
-            self._showWarning(err)
-        self.dlg.SetSizerAndFit(self.sizer)
-        self.ShowModal()
-        self.errList = []
-    def _showWarning(self, warning):
-        textCtrl = wx.TextCtrl(self.parent, value=unicode(err))
-        self.sizer.Add(textCtrl)
+
+        logging.debug('alerts flushing')
+        logging.flush()
+        alertCtrls=[]
+        for alert in self.alertList:
+            alertCtrl = self.tree.AppendItem(self.treeRoot, 'Alert {code}: {msg}'.format(**alert))
+            self.tree.SetPyData(alertCtrl, None)
+            self.tree.AppendItem(alertCtrl,'details')
+            alertCtrls.append(alertCtrl)
+        self.tree.SelectItem(alertCtrls[0])
+
+        self.tree.SetSize([400,400])
+        self.tree.SetColumnWidth(0, 300)
+
+        self.SetAutoLayout(True)
+        self.SetSizer(self.mainSizer)
+        self.mainSizer.Fit(self.panel)
+        self.mainSizer.SetSizeHints(self)
+        self.Layout()
+        print dir(self.tree)
+        print self.tree.GetSize()
+        self.SetSize([200,200])
+        self.Centre()
+
+        self.Show()
+        self.alertList = []
+        return
+    def _addAlert(self, alert):
+        textCtrl = wx.TextCtrl(self, value=unicode(alert))
+        self.alertsSizer.Add(textCtrl)
+    def onButton(self, event):
+        self.EndModal(event.GetId())
+    def onEscape(self,event):
+        self.EndModal(wx.ID_CANCEL)
+
 
 if __name__=='__main__':
-    app = wx.PySimpleApp()
-    errHandler = ErrorHandler(parent=app)
-    sys.stderr = errHandler
-    warnings.warn(1001, obj=app)
-    errHandler.flush() #does our dialog appear
+    from psychopy.app._psychopyApp import PsychoPyApp
+    app = PsychoPyApp()
+    app.showCoder()
+    handler = AlertHandler(parent=app.coder)
+#    sys.stderr = errHandler
+    alerts.alert(1001, obj=app)
+    handler.flush() #does our dialog appear
