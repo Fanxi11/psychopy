@@ -1279,7 +1279,7 @@ class CoderFrame(wx.Frame):
         wx.EVT_MENU(self, wx.ID_SAVEAS,  self.fileSaveAs)
         wx.EVT_MENU(self, wx.ID_CLOSE,  self.fileClose)
         wx.EVT_MENU(self, self.IDs.filePrint,  self.filePrint)
-        item = self.fileMenu.Append(wx.ID_PREFERENCES, text = "&Preferences")
+        item = self.fileMenu.Append(wx.ID_PREFERENCES, text = "&Preferences\t%s" %self.app.keys['preferences'])
         self.Bind(wx.EVT_MENU, self.app.showPrefs, item)
         #-------------quit
         self.fileMenu.AppendSeparator()
@@ -1874,7 +1874,7 @@ class CoderFrame(wx.Frame):
                         elif doc.newlines == '\r\n':
                             # document had '\r\n' newline on load
                             newlines = '\r\n'
-                        else: 
+                        else:
                             # None, \n, tuple
                             newlines = '\n'
                     elif self.prefs['newlineConvention'] == 'dos':
@@ -1883,7 +1883,7 @@ class CoderFrame(wx.Frame):
                         newlines = '\n'
                 except:
                     pass
-                    
+
                 with io.open(filename,'w', encoding='utf-8', newline=newlines) as f:
                     f.write(doc.GetText())
                 self.setFileModified(False)
