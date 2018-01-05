@@ -1053,7 +1053,9 @@ class CodeEditor(wx.stc.StyledTextCtrl):
             oneSharp = bool(len(lineText) > 1 and lineText[0] == '#')
             # todo: is twoSharp ever True when oneSharp is not?
             twoSharp = bool(len(lineText) > 2 and lineText[:2] == '##')
-            if oneSharp or twoSharp:
+            lastLine = bool(lineNo == self.GetLineCount()-1
+                            and self.GetLineLength(lineNo) == 0)
+            if oneSharp or twoSharp or lastLine:
                 newText = newText + lineText
             else:
                 newText = newText + "#" + lineText
@@ -1104,6 +1106,8 @@ class CodeEditor(wx.stc.StyledTextCtrl):
         selStart, selEnd = self._GetPositionsBoundingSelectedLines()
         start = self.LineFromPosition(selStart)
         end = self.LineFromPosition(selEnd)
+        if selEnd == self.GetTextLength():
+            end += 1
         return list(range(start, end))
 
     def _GetPositionsBoundingSelectedLines(self):
@@ -1111,9 +1115,7 @@ class CodeEditor(wx.stc.StyledTextCtrl):
         startPos = self.GetCurrentPos()
         endPos = self.GetAnchor()
         if startPos > endPos:
-            temp = endPos
-            endPos = startPos
-            startPos = temp
+            startPos, endPos = endPos, startPos
         if endPos == self.PositionFromLine(self.LineFromPosition(endPos)):
             # If it's at the very beginning of a line, use the line above it
             # as the ending line
