@@ -9,6 +9,7 @@
 
 from __future__ import absolute_import, division, print_function
 
+import atexit
 import ctypes
 import os
 import sys
@@ -109,8 +110,14 @@ class OpenWinList(list):
             obj = ref()
             if obj is None or item == obj:
                 list.remove(self, ref)
-openWindows = core.openWindows = OpenWinList()  # core needs this for wait()
 
+    def closeAll(self):
+        for ref in self:
+            obj = ref()
+            obj.close()
+
+openWindows = core.openWindows = OpenWinList()  # core needs this for wait()
+atexit.register(openWindows.closeAll)
 
 class Window(object):
     """Used to set up a context in which to draw objects,
