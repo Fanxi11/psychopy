@@ -299,38 +299,25 @@ vertSimple = """
             gl_Position =  ftransform();
     }
     """
-
-vertTextBox2 = '''
-    uniform sampler2D texture;
-    uniform vec2 pixel;
-    attribute float modulo;
-    varying float m;
-    void main() {
-        gl_FrontColor = gl_Color;
-        gl_TexCoord[0].xy = gl_MultiTexCoord0.xy;
-        gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
-        m = modulo;
-    }
-    '''
 fragTextBox2 = '''
     uniform sampler2D texture;
-    uniform vec2 pixel;
-    varying float m;
     void main() {
-        float gamma = 1.0;
-    
         vec2 uv      = gl_TexCoord[0].xy;
         vec4 current = texture2D(texture, uv);
-    
-        current  = pow(current,  vec4(1.0/gamma));
-    
+        
         float r = current.r;
         float g = current.g;
         float b = current.b;
         float a = current.a;
-       float t = max(max(r,g),b);
-       vec4 color = vec4(0.,0.,0., (r+g+b)/2.);
-       color = t*color + (1.-t)*vec4(r,g,b, min(min(r,g),b));
-       gl_FragColor = vec4( color.rgb, color.a);
+        gl_FragColor = vec4( gl_Color.rgb, (r+g+b)/2.);
+    }
+    '''
+fragSignedColorTexFont = '''
+    uniform sampler2D texture;
+    uniform vec3 rgb;
+    void main() {
+        vec4 textureFrag = texture2D(texture,gl_TexCoord[0].st);
+        gl_FragColor.rgb=rgb;
+        gl_FragColor.a = gl_Color.a*textureFrag.a;
     }
     '''
