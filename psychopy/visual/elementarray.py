@@ -532,11 +532,9 @@ class ElementArrayStim(MinimalStim, TextureMixin):
 
         # setup the shaderprogram
         _prog = self.win._progSignedTexMask
-        GL.glUseProgram(_prog)
-        # set the texture to be texture unit 0
-        GL.glUniform1i(GL.glGetUniformLocation(_prog, b"texture"), 0)
-        # mask is texture unit 1
-        GL.glUniform1i(GL.glGetUniformLocation(_prog, b"mask"), 1)
+        _prog.bind()
+        _prog.setInt('texture', 0)
+        _prog.setInt('mask', 1)
 
         # bind textures
         GL.glActiveTexture(GL.GL_TEXTURE1)
@@ -571,7 +569,7 @@ class ElementArrayStim(MinimalStim, TextureMixin):
         GL.glDisableClientState(GL.GL_VERTEX_ARRAY)
         GL.glDisableClientState(GL.GL_TEXTURE_COORD_ARRAY)
 
-        GL.glUseProgram(0)
+        _prog.unbind()
         GL.glPopClientAttrib()
         GL.glPopMatrix()
 

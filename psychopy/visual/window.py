@@ -1102,7 +1102,7 @@ class Window(object):
             openWindows.remove(self)
         except Exception:
             pass
-        if self.origGammaRamp is not None:
+        if hasattr(self, 'origGammaRamp') and self.origGammaRamp is not None:
             setGammaRamp(
                 screenID=self.backend.screenID,
                 newRamp=self.origGammaRamp,
@@ -1422,26 +1422,26 @@ class Window(object):
             self.blendMode = 'avg'
 
     def _setupShaders(self):
-        self._progSignedTexFont = _shaders.compileProgram(
+        self._progSignedTexFont = _shaders.Shader(
             _shaders.vertSimple, _shaders.fragSignedColorTexFont)
-        self._progFBOtoFrame = _shaders.compileProgram(
+        self._progFBOtoFrame = _shaders.Shader(
             _shaders.vertSimple, _shaders.fragFBOtoFrame)
         self._shaders = {}
-        self._shaders['signedTex'] = _shaders.compileProgram(
+        self._shaders['signedTex'] = _shaders.Shader(
             _shaders.vertSimple, _shaders.fragSignedColorTex)
-        self._shaders['signedTexMask'] = _shaders.compileProgram(
+        self._shaders['signedTexMask'] = _shaders.Shader(
             _shaders.vertSimple, _shaders.fragSignedColorTexMask)
-        self._shaders['signedTexMask1D'] = _shaders.compileProgram(
+        self._shaders['signedTexMask1D'] = _shaders.Shader(
             _shaders.vertSimple, _shaders.fragSignedColorTexMask1D)
-        self._shaders['signedTex_adding'] = _shaders.compileProgram(
+        self._shaders['signedTex_adding'] = _shaders.Shader(
             _shaders.vertSimple, _shaders.fragSignedColorTex_adding)
-        self._shaders['signedTexMask_adding'] = _shaders.compileProgram(
+        self._shaders['signedTexMask_adding'] = _shaders.Shader(
             _shaders.vertSimple, _shaders.fragSignedColorTexMask_adding)
-        self._shaders['signedTexMask1D_adding'] = _shaders.compileProgram(
+        self._shaders['signedTexMask1D_adding'] = _shaders.Shader(
             _shaders.vertSimple, _shaders.fragSignedColorTexMask1D_adding)
-        self._shaders['imageStim'] = _shaders.compileProgram(
+        self._shaders['imageStim'] = _shaders.Shader(
             _shaders.vertSimple, _shaders.fragImageStim)
-        self._shaders['imageStim_adding'] = _shaders.compileProgram(
+        self._shaders['imageStim_adding'] = _shaders.Shader(
             _shaders.vertSimple, _shaders.fragImageStim_adding)
 
     def _setupFrameBuffer(self):
@@ -1704,10 +1704,10 @@ class Window(object):
         GL.glEnd()
 
     def _prepareFBOrender(self):
-        GL.glUseProgram(self._progFBOtoFrame)
+        self._progFBOtoFrame.bind()
 
     def _finishFBOrender(self):
-        GL.glUseProgram(0)
+        self._progFBOtoFrame.unbind()
 
     def _afterFBOrender(self):
         pass

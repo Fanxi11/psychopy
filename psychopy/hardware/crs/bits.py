@@ -380,19 +380,18 @@ class BitsPlusPlus(object):
         if not haveShaders:
             return
         self._shaders = {}
-        shCompile = shaders.compileProgram
-        self._shaders['mono++'] = shCompile(shaders.vertSimple,
+        self._shaders['mono++'] = shaders.Shader(shaders.vertSimple,
                                             shaders.bitsMonoModeFrag)
-        self._shaders['color++'] = shCompile(shaders.vertSimple,
+        self._shaders['color++'] = shaders.Shader(shaders.vertSimple,
                                              shaders.bitsColorModeFrag)
 
     def _prepareFBOrender(self):
         if self.mode == 'mono++':
-            GL.glUseProgram(self._shaders['mono++'])
+            self._shaders['mono++'].bind()
         elif self.mode == 'color++':
-            GL.glUseProgram(self._shaders['color++'])
+            self._shaders['color++'].bind()
         else:
-            GL.glUseProgram(self.win._progFBOtoFrame)
+            self.win._progFBOtoFrame.bind()
 
     def _finishFBOrender(self):
         GL.glUseProgram(0)

@@ -344,10 +344,6 @@ class RadialStim(GratingStim):
         self._updateMaskCoords()
         self._updateVerticesBase()
         self._updateVertices()  # is this necessary? Works fine without...
-        if not self.useShaders:
-            # generate a displaylist ID
-            self._listID = GL.glGenLists(1)
-            self._updateList()  # ie refresh display list
 
     @attributeSetter
     def angularRes(self, value):
@@ -385,69 +381,60 @@ class RadialStim(GratingStim):
         GL.glPushMatrix()  # push before the list, pop after
         # scale the viewport to the appropriate size
         self.win.setScale('pix')
-        if self.useShaders:
-            # setup color
-            desiredRGB = self._getDesiredRGB(self.rgb, self.colorSpace,
-                                             self.contrast)
-            GL.glColor4f(desiredRGB[0], desiredRGB[1], desiredRGB[2],
-                         self.opacity)
 
-            # assign vertex array
-            GL.glVertexPointer(2, GL.GL_DOUBLE, 0, self.verticesPix.ctypes)
+        # setup color
+        desiredRGB = self._getDesiredRGB(self.rgb, self.colorSpace,
+                                         self.contrast)
+        GL.glColor4f(desiredRGB[0], desiredRGB[1], desiredRGB[2],
+                     self.opacity)
 
-            # then bind main texture
-            GL.glActiveTexture(GL.GL_TEXTURE0)
-            GL.glBindTexture(GL.GL_TEXTURE_2D, self._texID)
-            GL.glEnable(GL.GL_TEXTURE_2D)
-            # and mask
-            GL.glActiveTexture(GL.GL_TEXTURE1)
-            GL.glBindTexture(GL.GL_TEXTURE_1D, self._maskID)
-            GL.glDisable(GL.GL_TEXTURE_2D)
-            GL.glEnable(GL.GL_TEXTURE_1D)
+        # assign vertex array
+        GL.glVertexPointer(2, GL.GL_DOUBLE, 0, self.verticesPix.ctypes)
 
-            # setup the shaderprogram
-            prog = self.win._progSignedTexMask1D
-            GL.glUseProgram(prog)
-            # set the texture to be texture unit 0
-            GL.glUniform1i(GL.glGetUniformLocation(prog, b"texture"), 0)
-            # mask is texture unit 1
-            GL.glUniform1i(GL.glGetUniformLocation(prog, b"mask"), 1)
+        # then bind main texture
+        GL.glActiveTexture(GL.GL_TEXTURE0)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self._texID)
+        GL.glEnable(GL.GL_TEXTURE_2D)
+        # and mask
+        GL.glActiveTexture(GL.GL_TEXTURE1)
+        GL.glBindTexture(GL.GL_TEXTURE_1D, self._maskID)
+        GL.glDisable(GL.GL_TEXTURE_2D)
+        GL.glEnable(GL.GL_TEXTURE_1D)
 
-            # set pointers to visible textures
-            GL.glClientActiveTexture(GL.GL_TEXTURE0)
-            GL.glTexCoordPointer(2, GL.GL_DOUBLE, 0,
-                                 self._visibleTexture.ctypes)
-            GL.glEnableClientState(GL.GL_TEXTURE_COORD_ARRAY)
+        # setup the shaderprogram
+        _prog = self.win._progSignedTexMask1D
+        _prog.bind()
+        _prog.setInt(b"texture", 0)  # set the texture to be texture unit 0
+        _prog.setInt(b"mask", 1)  # mask is texture unit 1
 
-            # mask
-            GL.glClientActiveTexture(GL.GL_TEXTURE1)
-            GL.glTexCoordPointer(1, GL.GL_DOUBLE, 0,
-                                 self._visibleMask.ctypes)
-            GL.glEnableClientState(GL.GL_TEXTURE_COORD_ARRAY)
+        # set pointers to visible textures
+        GL.glClientActiveTexture(GL.GL_TEXTURE0)
+        GL.glTexCoordPointer(2, GL.GL_DOUBLE, 0,
+                             self._visibleTexture.ctypes)
+        GL.glEnableClientState(GL.GL_TEXTURE_COORD_ARRAY)
 
-            # do the drawing
-            GL.glEnableClientState(GL.GL_VERTEX_ARRAY)
-            GL.glDrawArrays(GL.GL_TRIANGLES, 0, self._nVisible)
+        # mask
+        GL.glClientActiveTexture(GL.GL_TEXTURE1)
+        GL.glTexCoordPointer(1, GL.GL_DOUBLE, 0,
+                             self._visibleMask.ctypes)
+        GL.glEnableClientState(GL.GL_TEXTURE_COORD_ARRAY)
 
-            # unbind the textures
-            GL.glClientActiveTexture(GL.GL_TEXTURE1)
-            GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
-            # main texture
-            GL.glClientActiveTexture(GL.GL_TEXTURE0)
-            GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
-            GL.glDisable(GL.GL_TEXTURE_2D)
-            # disable set states
-            GL.glDisableClientState(GL.GL_VERTEX_ARRAY)
-            GL.glDisableClientState(GL.GL_TEXTURE_COORD_ARRAY)
+        # do the drawing
+        GL.glEnableClientState(GL.GL_VERTEX_ARRAY)
+        GL.glDrawArrays(GL.GL_TRIANGLES, 0, self._nVisible)
 
-            GL.glUseProgram(0)
-        else:
-            # the list does the texture mapping
-            if self._needTextureUpdate:
-                self.setTex(value=self.tex, log=False)
-            if self._needUpdate:
-                self._updateList()
-            GL.glCallList(self._listID)
+        # unbind the textures
+        GL.glClientActiveTexture(GL.GL_TEXTURE1)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+        # main texture
+        GL.glClientActiveTexture(GL.GL_TEXTURE0)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+        GL.glDisable(GL.GL_TEXTURE_2D)
+        # disable set states
+        GL.glDisableClientState(GL.GL_VERTEX_ARRAY)
+        GL.glDisableClientState(GL.GL_TEXTURE_COORD_ARRAY)
+
+        _prog.unbind()
 
         # return the view to previous state
         GL.glPopMatrix()
@@ -510,112 +497,6 @@ class RadialStim(GratingStim):
         self._maskCoords[:, 1:] = 1 + self.maskRadialPhase
         self._visibleMask = self._maskCoords[self._visible, :]
 
-    def _updateListShaders(self):
-        """The user shouldn't need this method since it gets called
-        after every call to .set() Basically it updates the OpenGL
-        representation of your stimulus if some parameter of the
-        stimulus changes. Call it if you change a property manually
-        rather than using the .set() command
-        """
-        self._needUpdate = False
-        GL.glNewList(self._listID, GL.GL_COMPILE)
-
-        # assign vertex array
-        arrPointer = self.verticesPix.ctypes.data_as(
-            ctypes.POINTER(ctypes.c_float))
-        GL.glVertexPointer(2, GL.GL_FLOAT, 0, arrPointer)
-
-        # setup the shaderprogram
-        GL.glUseProgram(self.win._progSignedTexMask1D)
-        # set the texture to be texture unit 0
-        GL.glUniform1i(GL.glGetUniformLocation(
-            self.win._progSignedTexMask1D, b"texture"), 0)
-        GL.glUniform1i(GL.glGetUniformLocation(
-            self.win._progSignedTexMask1D, b"mask"), 1)  # mask is texture unit 1
-
-        # set pointers to visible textures
-        GL.glClientActiveTexture(GL.GL_TEXTURE0)
-        arrPointer = self._visibleTexture.ctypes.data_as(
-            ctypes.POINTER(ctypes.c_float))
-        GL.glTexCoordPointer(2, GL.GL_FLOAT, 0, arrPointer)
-        GL.glEnableClientState(GL.GL_TEXTURE_COORD_ARRAY)
-        # then bind main texture
-        GL.glActiveTexture(GL.GL_TEXTURE0)
-        GL.glBindTexture(GL.GL_TEXTURE_2D, self._texID)
-        GL.glEnable(GL.GL_TEXTURE_2D)
-
-        # mask
-        GL.glClientActiveTexture(GL.GL_TEXTURE1)
-        arrPointer = self._visibleMask.ctypes.data_as(
-            ctypes.POINTER(ctypes.c_float))
-        GL.glTexCoordPointer(1, GL.GL_FLOAT, 0, arrPointer)
-        GL.glEnableClientState(GL.GL_TEXTURE_COORD_ARRAY)
-        # and mask
-        GL.glActiveTexture(GL.GL_TEXTURE1)
-        GL.glBindTexture(GL.GL_TEXTURE_1D, self._maskID)
-        GL.glDisable(GL.GL_TEXTURE_2D)
-        GL.glEnable(GL.GL_TEXTURE_1D)
-
-        # do the drawing
-        GL.glEnableClientState(GL.GL_VERTEX_ARRAY)
-        GL.glDrawArrays(GL.GL_TRIANGLES, 0, self._nVisible * 3)
-        # disable set states
-        GL.glDisableClientState(GL.GL_VERTEX_ARRAY)
-        GL.glDisableClientState(GL.GL_TEXTURE_COORD_ARRAY)
-        GL.glDisable(GL.GL_TEXTURE_2D)
-
-        GL.glUseProgram(0)
-        # setup the shaderprogram
-        GL.glEndList()
-
-    def _updateListNoShaders(self):
-        """The user shouldn't need this method since it gets called
-        after every call to .set() Basically it updates the OpenGL
-        representation of your stimulus if some parameter of the
-        stimulus changes. Call it if you change a property manually
-        rather than using the .set() command
-        """
-        self._needUpdate = False
-        GL.glNewList(self._listID, GL.GL_COMPILE)
-        # glColor can interfere with multitextures
-        GL.glColor4f(1.0, 1.0, 1.0, self.opacity)
-
-        # assign vertex array
-        GL.glVertexPointer(2, GL.GL_DOUBLE, 0, self.verticesPix.ctypes)
-        GL.glEnableClientState(GL.GL_VERTEX_ARRAY)
-
-        # bind and enable textures
-        # main texture
-        GL.glActiveTextureARB(GL.GL_TEXTURE0_ARB)
-        GL.glBindTexture(GL.GL_TEXTURE_2D, self._texID)
-        GL.glEnable(GL.GL_TEXTURE_2D)
-        # mask
-        GL.glActiveTextureARB(GL.GL_TEXTURE1_ARB)
-        GL.glBindTexture(GL.GL_TEXTURE_1D, self._maskID)
-        GL.glDisable(GL.GL_TEXTURE_2D)
-        GL.glEnable(GL.GL_TEXTURE_1D)
-
-        # set pointers to visible textures
-        # mask
-        GL.glClientActiveTextureARB(GL.GL_TEXTURE1_ARB)
-        GL.glTexCoordPointer(2, GL.GL_DOUBLE, 0, self._visibleMask.ctypes)
-        GL.glEnableClientState(GL.GL_TEXTURE_COORD_ARRAY)
-        # texture
-        GL.glClientActiveTextureARB(GL.GL_TEXTURE0_ARB)
-        GL.glTexCoordPointer(2, GL.GL_DOUBLE, 0, self._visibleTexture.ctypes)
-        GL.glEnableClientState(GL.GL_TEXTURE_COORD_ARRAY)
-
-        # do the drawing
-        GL.glDrawArrays(GL.GL_TRIANGLES, 0, self._nVisible)
-
-        # disable set states
-        GL.glDisableClientState(GL.GL_VERTEX_ARRAY)
-        GL.glActiveTextureARB(GL.GL_TEXTURE0_ARB)
-        GL.glDisableClientState(GL.GL_TEXTURE_COORD_ARRAY)
-        GL.glActiveTextureARB(GL.GL_TEXTURE1_ARB)
-        GL.glDisableClientState(GL.GL_TEXTURE_COORD_ARRAY)
-
-        GL.glEndList()
 
     def __del__(self):
         """Remove textures from graphics card to prevent crash

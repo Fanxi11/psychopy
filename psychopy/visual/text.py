@@ -711,15 +711,11 @@ class TextStim(BaseVisualStim, ColorMixin):
                          desiredRGB[2], self.opacity)
 
             # self.win._progSignedTex)
-            GL.glUseProgram(self.win._progSignedTexFont)
-            # GL.glUniform3iv(GL.glGetUniformLocation(
-            #       self.win._progSignedTexFont, "rgb"), 1,
-            #       desiredRGB.ctypes.data_as(ctypes.POINTER(ctypes.c_float)))
-            #  # set the texture to be texture unit 0
-            GL.glUniform3f(
-                GL.glGetUniformLocation(self.win._progSignedTexFont, b"rgb"),
-                desiredRGB[0], desiredRGB[1], desiredRGB[2])
-
+            _prog = self.win._progSignedTexFont
+            _prog.bind()
+            _prog.setInt('texture', 0)
+            _prog.setInt('mask', 1)
+            _prog.setFloat('rgb', desiredRGB)
         else:  # color is set in texture, so set glColor to white
             GL.glColor4f(1, 1, 1, 1)
 
@@ -758,7 +754,7 @@ class TextStim(BaseVisualStim, ColorMixin):
 
         if self.useShaders:
             # disable shader (but command isn't available pre-OpenGL2.0)
-            GL.glUseProgram(0)
+            _prog.unbind()
 
         # GL.glEnable(GL.GL_DEPTH_TEST)  # Enables Depth Testing
         GL.glPopMatrix()

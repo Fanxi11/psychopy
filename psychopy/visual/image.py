@@ -127,19 +127,12 @@ class ImageStim(BaseVisualStim, ContainerMixin, ColorMixin, TextureMixin):
         if self.isLumImage:
             # for a luminance image do recoloring
             _prog = self.win._progSignedTexMask
-            GL.glUseProgram(_prog)
-            # set the texture to be texture unit 0
-            GL.glUniform1i(GL.glGetUniformLocation(_prog, b"texture"), 0)
-            # mask is texture unit 1
-            GL.glUniform1i(GL.glGetUniformLocation(_prog, b"mask"), 1)
         else:
             # for an rgb image there is no recoloring
             _prog = self.win._progImageStim
-            GL.glUseProgram(_prog)
-            # set the texture to be texture unit 0
-            GL.glUniform1i(GL.glGetUniformLocation(_prog, b"texture"), 0)
-            # mask is texture unit 1
-            GL.glUniform1i(GL.glGetUniformLocation(_prog, b"mask"), 1)
+        _prog.bind()
+        _prog.setInt('texture', 0)
+        _prog.setInt('mask', 1)
 
         # mask
         GL.glActiveTexture(GL.GL_TEXTURE1)
@@ -181,7 +174,7 @@ class ImageStim(BaseVisualStim, ContainerMixin, ColorMixin, TextureMixin):
         GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
         GL.glDisable(GL.GL_TEXTURE_2D)
 
-        GL.glUseProgram(0)
+        _prog.unbind()
 
         GL.glEndList()
 
