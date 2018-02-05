@@ -182,7 +182,7 @@ class EnvelopeGrating(GratingStim):
             self.beat =bool(beat)
         self._needUpdate = True
         self.blendmode=blendmode
-        self._shaderProg = _shaders.compileProgram(
+        self._shaderProg = _shaders.Shader(
             _shaders.vertSimple, carrierEnvelopeMaskFrag)
 
         self.local = numpy.ones((texRes, texRes), dtype=numpy.ubyte)
@@ -471,7 +471,7 @@ class EnvelopeGrating(GratingStim):
             self._shaderProg.setFloat('offset', 0.0)
         else:
             self._shaderProg.setFloat('offset', 1.0)
-        self._shaderProg.setFloat('add', addValue)
+        self._shaderProg.setFloat('add', addvalue)
 
         # mask
         GL.glActiveTexture(GL.GL_TEXTURE2)

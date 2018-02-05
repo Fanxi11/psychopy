@@ -463,6 +463,8 @@ class _baseVisualTest(object):
 
     def test_radial(self):
         win = self.win
+        if not win._haveShaders:
+            pytest.skip("RadialStim no longer supports non-shader windows")
         #using init
         wedge = visual.RadialStim(win, tex='sqrXsqr', color=1,size=2*self.scaleFactor,
             visibleWedge=[0, 45], radialCycles=2, angularCycles=2, interpolate=False)
