@@ -15,10 +15,10 @@
 # (see http://www.boost.org/LICENSE_1_0.txt)
 #
 
-import sys
+import sys, os
 import math
 import numpy as np
-from freetype import *
+import freetype as ft
 import OpenGL.GL as gl
 import ctypes
 import glob
@@ -59,8 +59,9 @@ OSXFontDirectories = [
 ]
 
 
-class TextureAtlas:
-    '''
+class _TextureAtlas:
+    """ A TextureAtlas is the texture used by the GLFont to store the glyphs
+
     Group multiple small data regions into a larger texture.
 
     The algorithm is based on the article by Jukka Jylänki : "A Thousand Ways
@@ -76,10 +77,10 @@ class TextureAtlas:
     region = atlas.get_region(20,20)
     ...
     atlas.set_region(region, data)
-    '''
+    """
 
-    def __init__(self, width=1024, height=1024, depth=1):
-        '''
+    def __init__(self, width=1024, height=1024, format='alpha'):
+        """
         Initialize a new atlas of given size.
 
         Parameters
@@ -91,28 +92,33 @@ class TextureAtlas:
         height : int
             Height of the underlying texture
 
-        depth : 1 or 3
+        format : 'alpha' or 'rgb'
             Depth of the underlying texture
-        '''
-        self.width  = int(math.pow(2, int(math.log(width, 2) + 0.5)))
+        """
+        self.width = int(math.pow(2, int(math.log(width, 2) + 0.5)))
         self.height = int(math.pow(2, int(math.log(height, 2) + 0.5)))
-        self.depth  = depth
-        self.nodes  = [ (0,0,self.width), ]
-        self.data   = np.zeros((self.height, self.width, self.depth),
-                               dtype=np.ubyte)
-        self.texid  = 0
-        self.used   = 0
-
+        self.format = format
+        self.nodes = [(0,0,self.width),]
+        self.textureID = 0
+        self.used = 0
+        if format == 'rgb':
+            self.data = np.zeros((self.height, self.width, 3),
+                                 dtype=np.ubyte)
+        elif format == 'alpha':
+            self.data = np.zeros((self.height, self.width),
+                                 dtype=np.ubyte)
+        else:
+            raise TypeError("TextureAtlas should have format of 'alpha' or "
+                            "'rgb' not {}".format(repr(format)))
 
     def upload(self):
-        '''
+        """
         Upload atlas data into video memory.
-        '''
+        """
+        if not self.textureID:
+            self.textureID = gl.glGenTextures(1)
 
-        if not self.texid:
-            self.texid = gl.glGenTextures(1)
-
-        gl.glBindTexture( gl.GL_TEXTURE_2D, self.texid )
+        gl.glBindTexture( gl.GL_TEXTURE_2D, self.textureID )
         gl.glTexParameteri( gl.GL_TEXTURE_2D,
                             gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP )
         gl.glTexParameteri( gl.GL_TEXTURE_2D,
@@ -121,7 +127,7 @@ class TextureAtlas:
                             gl.GL_TEXTURE_MAG_FILTER, gl.GL_LINEAR )
         gl.glTexParameteri( gl.GL_TEXTURE_2D,
                             gl.GL_TEXTURE_MIN_FILTER, gl.GL_LINEAR )
-        if self.depth == 1:
+        if self.format == 'alpha':
             gl.glTexImage2D( gl.GL_TEXTURE_2D, 0, gl.GL_ALPHA,
                              self.width, self.height, 0,
                              gl.GL_ALPHA, gl.GL_UNSIGNED_BYTE, self.data )
@@ -131,7 +137,7 @@ class TextureAtlas:
                              gl.GL_RGB, gl.GL_UNSIGNED_BYTE, self.data )
 
     def set_region(self, region, data):
-        '''
+        """
         Set a given region width provided data.
 
         Parameters
@@ -142,13 +148,16 @@ class TextureAtlas:
 
         data : numpy array
             data to be copied into given region
-        '''
+        """
 
         x, y, width, height = region
-        self.data[int(y):int(y+height),int(x):int(x+width), :] = data
+        if self.format=='rgb':
+            self.data[int(y):int(y+height),int(x):int(x+width), :] = data
+        else:
+            self.data[int(y):int(y+height),int(x):int(x+width)] = data
 
     def get_region(self, width, height):
-        '''
+        """
         Get a free region of given size and allocate it
 
         Parameters
@@ -163,7 +172,7 @@ class TextureAtlas:
         Return
         ------
             A newly allocated region as (x,y,width,height) or (-1,-1,0,0)
-        '''
+        """
 
         best_height = sys.maxsize
         best_index = -1
@@ -209,7 +218,7 @@ class TextureAtlas:
         return region
 
     def fit(self, index, width, height):
-        '''
+        """
         Test if region (width,height) fit into self.nodes[index]
 
         Parameters
@@ -224,7 +233,7 @@ class TextureAtlas:
         height : int
             Height or the region to be tested
 
-        '''
+        """
 
         node = self.nodes[index]
         x,y = node[0], node[1]
@@ -244,9 +253,9 @@ class TextureAtlas:
         return y
 
     def merge(self):
-        '''
+        """
         Merge nodes
-        '''
+        """
 
         i = 0
         while i < len(self.nodes)-1:
@@ -259,14 +268,13 @@ class TextureAtlas:
                 i += 1
 
 
-class TextureFont:
-    '''
-    A texture font gathers a set of glyph relatively to a given font filename
-    and size.
-    '''
+class GLFont:
+    """
+    A GLFont gathers a set of glyphs for a given font filename and size.
+    """
 
-    def __init__(self, atlas, filename, size):
-        '''
+    def __init__(self, filename, size, textureSize=1024):
+        """
         Initialize font
 
         Parameters:
@@ -274,18 +282,18 @@ class TextureFont:
 
         atlas: TextureAtlas
             Texture atlas where glyph texture will be stored
-
+        
         filename: str
             Font filename
 
         size : float
             Font size
-        '''
-        self.atlas = atlas
+        """
+        self.atlas = _TextureAtlas(textureSize, textureSize, format='alpha')
         self.filename = filename
         self.size = size
         self.glyphs = {}
-        face = Face( self.filename )
+        face = ft.Face( self.filename )
         face.set_char_size( int(self.size*64))
         self._dirty = False
         metrics = face.size
@@ -293,41 +301,33 @@ class TextureFont:
         self.descender = metrics.descender/64.0
         self.height    = metrics.height/64.0
         self.linegap   = self.height - self.ascender + self.descender
-        self.depth = atlas.depth
-        try:
-            set_lcd_filter(FT_LCD_FILTER_LIGHT)
-        except:
-            pass
-
+        self.format = self.atlas.format
 
     def __getitem__(self, charcode):
-        '''
+        """
         x.__getitem__(y) <==> x[y]
-        '''
+        """
         if charcode not in self.glyphs.keys():
             self.load('%c' % charcode)
         return self.glyphs[charcode]
 
 
-
-    def get_texid(self):
-        '''
+    @property
+    def textureID(self):
+        """
         Get underlying texture identity .
-        '''
+        """
 
         if self._dirty:
             self.atlas.upload()
         self._dirty = False
-        return self.atlas.texid
-
-    texid = property(get_texid,
-                     doc='''Underlying texture identity.''')
+        return self.atlas.textureID
 
     def preloadAll(self, nMax=None):
-        '''
+        """
         :return:
-        '''
-        face = Face( self.filename)
+        """
+        face = ft.Face( self.filename)
         
         n = 0
         chrs = list(face.get_chars())
@@ -338,7 +338,7 @@ class TextureFont:
             self.load(unichr(c[1]), face=face)
 
     def load(self, charcodes = '', face=None):
-        '''
+        """
         Build glyphs corresponding to individual characters in charcodes.
 
         Parameters:
@@ -346,10 +346,10 @@ class TextureFont:
 
         charcodes: [str | unicode]
             Set of characters to be represented
-        '''
+        """
         if face is None:
-            face = Face( self.filename )
-        pen = Vector(0,0)
+            face = ft.Face( self.filename )
+        pen = ft.Vector(0,0)
         hres = 16*72
         hscale = 1.0/16
 
@@ -357,13 +357,13 @@ class TextureFont:
             if charcode in self.glyphs.keys():
                 continue
             face.set_char_size( int(self.size * 64), 0, hres, 72 )
-            matrix = Matrix( int((hscale) * 0x10000), int((0.0) * 0x10000),
+            matrix = ft.Matrix( int((hscale) * 0x10000), int((0.0) * 0x10000),
                              int((0.0)    * 0x10000), int((1.0) * 0x10000) )
             face.set_transform( matrix, pen )
 
             self._dirty = True
-            flags = FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT
-            flags |= FT_LOAD_TARGET_LCD
+            flags = ft.FT_LOAD_RENDER | ft.FT_LOAD_FORCE_AUTOHINT
+            flags |= ft.FT_LOAD_TARGET_LCD
 
             face.load_char( charcode, flags )
             bitmap = face.glyph.bitmap
@@ -373,7 +373,11 @@ class TextureFont:
             rows   = face.glyph.bitmap.rows
             pitch  = face.glyph.bitmap.pitch
 
-            x,y,w,h = self.atlas.get_region(width/self.depth+2, rows+2)
+            if self.format=='rgb':
+                x, y, w, h = self.atlas.get_region(width/5, rows + 2)
+            else:
+                x, y, w, h = self.atlas.get_region(width+2, rows+2)
+
             if x < 0:
                 print ('Missed !')
                 continue
@@ -382,22 +386,27 @@ class TextureFont:
             data = []
             for i in range(rows):
                 data.extend(bitmap.buffer[i*pitch:i*pitch+width])
-            data = np.array(data,dtype=np.ubyte).reshape(int(h),int(w),3)
-            gamma = 1.5
-            Z = ((data/255.0)**(gamma))
-            data = (Z*255).astype(np.ubyte)
+            if self.format == 'rgb':
+                data = np.array(data, dtype=np.ubyte).reshape(
+                    int(h), int(w), 3)
+            else:
+                data = np.array(data, dtype=np.ubyte).reshape(
+                    int(h), int(w))
+
+            if self.format == 'rgb':
+                Z = (((data/255.0)**1.5)*255).astype(np.ubyte)
             self.atlas.set_region((x,y,w,h), data)
 
             # Build glyph
-            size   = w,h
+            size = w, h
             offset = left, top
-            advance= face.glyph.advance.x, face.glyph.advance.y
+            advance = face.glyph.advance.x, face.glyph.advance.y
 
-            u0     = (x +     0.0)/float(self.atlas.width)
-            v0     = (y +     0.0)/float(self.atlas.height)
-            u1     = (x + w - 0.0)/float(self.atlas.width)
-            v1     = (y + h - 0.0)/float(self.atlas.height)
-            texcoords = (u0,v0,u1,v1)
+            u0 = (x + 0.0)/float(self.atlas.width)
+            v0 = (y + 0.0)/float(self.atlas.height)
+            u1 = (x + w - 0.0)/float(self.atlas.width)
+            v1 = (y + h - 0.0)/float(self.atlas.height)
+            texcoords = (u0, v0, u1, v1)
             glyph = TextureGlyph(charcode, size, offset, advance, texcoords)
             self.glyphs[charcode] = glyph
 
@@ -405,28 +414,25 @@ class TextureFont:
             for g in self.glyphs.values():
                 # 64 * 64 because of 26.6 encoding AND the transform matrix used
                 # in texture_font_load_face (hres = 64)
-                kerning = face.get_kerning(g.charcode, charcode, mode=FT_KERNING_UNFITTED)
+                kerning = face.get_kerning(g.charcode, charcode,
+                                           mode=ft.FT_KERNING_UNFITTED)
                 if kerning.x != 0:
                     glyph.kerning[g.charcode] = kerning.x/(64.0*64.0)
-                kerning = face.get_kerning(charcode, g.charcode, mode=FT_KERNING_UNFITTED)
+                kerning = face.get_kerning(charcode, g.charcode,
+                                           mode=ft.FT_KERNING_UNFITTED)
                 if kerning.x != 0:
                     g.kerning[charcode] = kerning.x/(64.0*64.0)
 
-            # High resolution advance.x calculation
-            # gindex = face.get_char_index( charcode )
-            # a = face.get_advance(gindex, FT_LOAD_RENDER | FT_LOAD_TARGET_LCD)/(64*72)
-            # glyph.advance = a, glyph.advance[1]
-
 
 class TextureGlyph:
-    '''
+    """
     A texture glyph gathers information relative to the size/offset/advance and
     texture coordinates of a single character. It is generally built
     automatically by a TextureFont.
-    '''
+    """
 
     def __init__(self, charcode, size, offset, advance, texcoords):
-        '''
+        """
         Build a new texture glyph
 
         Parameter:
@@ -446,7 +452,7 @@ class TextureGlyph:
 
         texcoords: tuple of 4 floats
             Texture coordinates of bottom-left and top-right corner
-        '''
+        """
         self.charcode = charcode
         self.size = size
         self.offset = offset
@@ -456,14 +462,14 @@ class TextureGlyph:
 
 
     def get_kerning(self, charcode):
-        ''' Get kerning information
+        """ Get kerning information
 
         Parameters:
         -----------
 
         charcode: char
             Character preceding this glyph
-        '''
+        """
         if charcode in self.kerning.keys():
             return self.kerning[charcode]
         else:
@@ -486,21 +492,26 @@ def findSystemFonts():
         paths = X11FontDirectories
     fontPaths = []
     for thisFolder in paths:
-        for thisExt in ['ttf', 'otf', 'ttc']:
+        for thisExt in ['ttf', 'otf', 'ttc', 'dfont']:
             fontPaths.extend(glob.glob("{}{}*.{}".format(
                 thisFolder, os.path.sep, thisExt)))
     return fontPaths
 
 
-def getIdFromArgs(font_info, size, dpi):
+def getIdFromArgs(fontInfo, size, bold, italic):
     """Generate a string identifier for this font/size to store in font dict
 
-    :param font_info: FontInfo class from FontManager.getFontsMatching()
+    :param fontInfo: FontInfo class from FontManager.getFontsMatching()
     :param size:
     :param dpi:
     :return: a string
     """
-    return "%s_%d_%d" % (font_info.getID(), size, dpi)
+    flags=""
+    if bold:
+        flags += "_bold"
+    if italic:
+        flags += "_italic"
+    return "%s_%d%s" % (fontInfo.getID(), size, flags)
 
 
 class FontManager(object):
@@ -519,7 +530,7 @@ class FontManager(object):
     The FontManager is currently used by the psychopy.visual.TextBox stim
     type. A user script can access the FontManager via:
 
-    font_mngr=visual.textbox.getFontManager()
+    fonts = visual.textbox2.getFontManager()
 
     A user script never creates an instance of the FontManager class and
     should always access it using visual.textbox.getFontManager().
@@ -530,64 +541,63 @@ class FontManager(object):
 
     """
     freetype_import_error = None
-    font_atlas_dict = {}
-    font_family_styles = []
-    _available_font_info = {}
-    font_store = None
+    fontDict = {}
+    fontStyles = []
+    _available_fontInfo = {}
 
-    def __init__(self, monospace_only=True):
+    def __init__(self, monospaceOnly=False):
         # if FontManager.freetype_import_error:
         #    raise Exception('Appears the freetype library could not load.
         #       Error: %s'%(str(FontManager.freetype_import_error)))
 
-        self.load_monospace_only = monospace_only
-        self.updateFontInfo(monospace_only)
+        self.monospaceOnly = monospaceOnly
+        self.updateFontInfo(monospaceOnly)
 
     def getFontFamilyNames(self):
         """Returns a list of the available font family names.
         """
-        return list(self._available_font_info.keys())
+        return list(self._available_fontInfo.keys())
 
     def getFontStylesForFamily(self, family_name):
         """For the given family_name, a list of style names supported is
         returned.
         """
-        style_dict = self._available_font_info.get(family_name)
+        style_dict = self._available_fontInfo.get(family_name)
         if style_dict:
             return list(style_dict.keys())
 
     def getFontFamilyStyles(self):
         """Returns a list where each element of the list is a itself a
-        two element list of [font_family_name,[font_style_names_list]]
+        two element list of [fontName,[fontStyle_names_list]]
         """
-        return self.font_family_styles
+        return self.fontStyles
 
-    def getFontsMatching(self, font_family_name, bold=False, italic=False,
-                         font_style=None):
+    def getFontsMatching(self, fontName, bold=False, italic=False,
+                         fontStyle=None):
         """
         Returns the list of FontInfo instances that match the provided
-        font_family_name and style information. If no matching fonts are
+        fontName and style information. If no matching fonts are
         found, None is returned.
         """
-        style_dict = self._available_font_info.get(font_family_name)
+        style_dict = self._available_fontInfo.get(fontName)
         if style_dict is None:
             return None
-        if font_style and font_style in style_dict:
-            return style_dict[font_style]
+        if fontStyle and fontStyle in style_dict:
+            return style_dict[fontStyle]
         for style, fonts in style_dict.items():
             b, i = self.booleansFromStyleName(style)
             if b == bold and i == italic:
                 return fonts
         return None
 
-    def addFontFile(self, font_path, monospace_only=True):
+    def addFontFile(self, fontPath, monospaceOnly=False):
         """
         Add a Font File to the FontManger font search space. The
-        font_path must be a valid path including the font file name.
+        fontPath must be a valid path including the font file name.
         Relative paths can be used, with the current working directory being
         the origin.
 
-        If monospace_only is True, the font file will only be added if it is a
+        If monospaceOnly is True, the font file will only be added if it is a
         monospace font (as only monospace fonts are currently supported by
         TextBox).
 
@@ -595,15 +605,15 @@ class FontManager(object):
         the script, so any extra font paths need to be added each time the
         script starts.
         """
-        return self.addFontFiles((font_path,), monospace_only)
+        return self.addFontFiles((fontPath,), monospaceOnly)
 
-    def addFontFiles(self, font_paths, monospace_only=True):
+    def addFontFiles(self, fontPaths, monospaceOnly=False):
         """ Add a list of font files to the FontManger font search space.
-        Each element of the font_paths list must be a valid path including
+        Each element of the fontPaths list must be a valid path including
         the font file name. Relative paths can be used, with the current
         working directory being the origin.
 
-        If monospace_only is True, each font file will only be added if it is
+        If monospaceOnly is True, each font file will only be added if it is
         a monospace font (as only monospace fonts are currently supported by
         TextBox).
 
@@ -613,27 +623,27 @@ class FontManager(object):
         """
 
         fi_list = []
-        for fp in font_paths:
+        for fp in fontPaths:
             if os.path.isfile(fp) and os.path.exists(fp):
-                face = Face(fp)
-                if monospace_only:
+                face = ft.Face(fp)
+                if monospaceOnly:
                     if face.is_fixed_width:
                         fi_list.append(self._createFontInfo(fp, face))
                 else:
                     fi_list.append(self._createFontInfo(fp, face))
 
-        self.font_family_styles.sort()
+        self.fontStyles.sort()
 
         return fi_list
 
-    def addFontDirectory(self, font_dir, monospace_only=True, recursive=False):
+    def addFontDirectory(self, fontDir, monospaceOnly=False, recursive=False):
         """
-        Add any font files found in font_dir to the FontManger font search
-        space. Each element of the font_paths list must be a valid path
+        Add any font files found in fontDir to the FontManger font search
+        space. Each element of the fontPaths list must be a valid path
         including the font file name. Relative paths can be used, with the
         current working directory being the origin.
 
-        If monospace_only is True, each font file will only be added if it is
+        If monospaceOnly is True, each font file will only be added if it is
         a monospace font (as only monospace fonts are currently supported by
         TextBox).
 
@@ -644,24 +654,24 @@ class FontManager(object):
 
         from os import walk
 
-        font_paths = []
-        for (dirpath, dirnames, filenames) in walk(font_dir):
+        fontPaths = []
+        for (dirpath, dirnames, filenames) in walk(fontDir):
             ttf_files = [os.path.join(dirpath, fname)
                          for fname in filenames
                          if fname.lower().endswith('.ttf')]
-            font_paths.extend(ttf_files)
+            fontPaths.extend(ttf_files)
             if not recursive:
                 break
 
-        return self.addFontFiles(font_paths)
+        return self.addFontFiles(fontPaths)
 
         return fi
 
     # Class methods for FontManager below this comment should not need to be
     # used by user scripts in most situations. Accessing them is okay.
 
-    def getGLFont(self, font_family_name, size=32, bold=False, italic=False, dpi=72,
-                  monospace=True):
+    def getGLFont(self, name, size=32, bold=False, italic=False,
+                  monospace=False):
         """
         Return a FontAtlas object that matches the family name, style info,
         and size provided. FontAtlas objects are cached, so if multiple
@@ -669,25 +679,19 @@ class FontManager(object):
         then the existing FontAtlas is returned. Otherwise, a new FontAtlas is
         created , added to the cache, and returned.
         """
-        font_infos = self.getFontsMatching(font_family_name, bold, italic)
-        if len(font_infos) == 0:
+        fontInfos = self.getFontsMatching(name, bold, italic)
+        if len(fontInfos) == 0:
             return False
-        font_info = font_infos[0]
-        fid = getIdFromArgs(font_info, size, dpi)
-        font_atlas = self.font_atlas_dict.get(fid)
-        if font_atlas is None:
-            atlas = TextureAtlas(width=1024, height=1024)
-            newAtlas = TextureFont(atlas, font_info.path, size)
-            font_atlas = self.font_atlas_dict.setdefault(fid, newAtlas)
-            if self.font_store:
-                t1 = getTime()
-                self.font_store.addFontAtlas(font_atlas)
-                t2 = getTime()
-                print('font store add atlas:', t2 - t1)
+        fontInfo = fontInfos[0]
+        fid = getIdFromArgs(fontInfo, size, bold, italic)
+        glFont = self.fontDict.get(fid)
+        if glFont is None:
+            glFont = GLFont(fontInfo.path, size)
+            glFont = self.fontDict.setdefault(fid, glFont)  # gets
 
-        return font_atlas
+        return glFont
 
-    def getFontInfo(self, refresh=False, monospace=True):
+    def getFontInfo(self, refresh=False, monospace=False):
         """
         Returns the available font information as a dict of dict's.
         The first level dict has keys for the available font families.
@@ -697,15 +701,15 @@ class FontManager(object):
         There is one FontInfo object for each physical font file found that
         matches the associated font family and style.
         """
-        if refresh or not self._available_font_info:
+        if refresh or not self._available_fontInfo:
             self.updateFontInfo(monospace)
-        return self._available_font_info
+        return self._available_fontInfo
 
-    def updateFontInfo(self, monospace_only=True):
-        self._available_font_info.clear()
-        del self.font_family_styles[:]
+    def updateFontInfo(self, monospaceOnly=False):
+        self._available_fontInfo.clear()
+        del self.fontStyles[:]
         fonts_found = findSystemFonts()
-        self.addFontFiles(fonts_found, monospace_only)
+        self.addFontFiles(fonts_found, monospaceOnly)
 
     def booleansFromStyleName(self, style):
         """
@@ -726,13 +730,13 @@ class FontManager(object):
 
     def _createFontInfo(self, fp, fface):
         fns = (fface.family_name, fface.style_name)
-        if fns in self.font_family_styles:
+        if fns in self.fontStyles:
             pass
         else:
-            self.font_family_styles.append(
+            self.fontStyles.append(
                 (fface.family_name, fface.style_name))
 
-        styles_for_font_dict = self._available_font_info.setdefault(
+        styles_for_font_dict = self._available_fontInfo.setdefault(
             fface.family_name, {})
         fonts_for_style = styles_for_font_dict.setdefault(fface.style_name, [])
         fi = FontInfo(fp, fface)
@@ -741,12 +745,12 @@ class FontManager(object):
 
     def __del__(self):
         self.font_store = None
-        if self.font_atlas_dict:
-            self.font_atlas_dict.clear()
-            self.font_atlas_dict = None
-        if self._available_font_info:
-            self._available_font_info.clear()
-            self._available_font_info = None
+        if self.fontDict:
+            self.fontDict.clear()
+            self.fontDict = None
+        if self._available_fontInfo:
+            self._available_fontInfo.clear()
+            self._available_fontInfo = None
 
 
 class FontInfo(object):

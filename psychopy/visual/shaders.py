@@ -24,7 +24,7 @@ def print_log(shader):
     if length.value > 0:
         log = create_string_buffer(length.value)
         GL.glGetShaderInfoLog(shader, length, byref(length), log)
-        sys.stderr.write(log.value + '\n')
+        sys.stderr.write("{}\n".format(log.value))
 
 
 class Shader:
@@ -312,12 +312,10 @@ fragTextBox2 = '''
         gl_FragColor = vec4( gl_Color.rgb, (r+g+b)/2.);
     }
     '''
-fragSignedColorTexFont = '''
+fragTextBox2alpha = '''
     uniform sampler2D texture;
-    uniform vec3 rgb;
     void main() {
-        vec4 textureFrag = texture2D(texture,gl_TexCoord[0].st);
-        gl_FragColor.rgb=rgb;
-        gl_FragColor.a = gl_Color.a*textureFrag.a;
+        vec4 current = texture2D(texture,gl_TexCoord[0].st);
+        gl_FragColor = vec4( gl_Color.rgb, current.a);
     }
     '''

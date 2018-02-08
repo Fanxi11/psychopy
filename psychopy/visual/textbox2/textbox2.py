@@ -6,10 +6,16 @@
 #  Distributed under the terms of the new BSD license.
 #
 # -----------------------------------------------------------------------------
-'''
-Subpixel rendering AND positioning using OpenGL and shaders.
 
-'''
+"""
+TextBox2 provides a combination of features from TextStim and TextBox and then
+some more added:
+
+    - fast like TextBox (TextStim is pyglet-based and slow)
+    - provides for fonts that aren't monospaced (unlike TextBox)
+    - adds additional options to use <b>bold<\b> and <i>italic<\i> tags in text
+
+"""
 import numpy as np
 import random
 import OpenGL.GL as gl
@@ -18,19 +24,23 @@ import ctypes
 from ..basevisual import BaseVisualStim, ColorMixin, ContainerMixin
 from psychopy.tools.attributetools import attributeSetter
 from psychopy.tools.monitorunittools import convertToPix
-from .fontmanager import FontManager, TextureAtlas, TextureFont
-from ..shaders import Shader, fragTextBox2, vertSimple
-#
-# allFonts = FontManager(monospace_only = False)
-#
+from .fontmanager import FontManager, GLFont
+from .. import shaders
+
+allFonts = FontManager()
+
 shader = None
+
+codes = {'BOLD_START' : u'\uE100',
+         'BOLD_END' : u'\uE101',
+         'ITAL_START' : u'\uE102',
+         'ITAL_END' : u'\uE103'}
 
 
 class TextBox2(BaseVisualStim, ContainerMixin):
-    def __init__(self, win, text, font, atlas,
+    def __init__(self, win, text, font,
                  pos=(0,0), units='pix', letterHeight=12,
                  width=None, height=None,  # by default use the text contents
-                 shader = None,
                  color=(1.0, 1.0, 1.0),
                  colorSpace='rgb',
                  opacity=1.0,
@@ -43,19 +53,27 @@ class TextBox2(BaseVisualStim, ContainerMixin):
                  flipVert=False,
                  name='', autoLog=None):
         BaseVisualStim.__init__(self, win, units=units, name=name,
-                                          autoLog=False)
+                                autoLog=autoLog)
         self.win = win
-        if shader is None:
-            shader = Shader(vertSimple, fragTextBox2)
-        self.shader = shader
-        self.atlas = atlas
-        self.font = font
+        # first set params needed to create font (letter sizes etc)
         self.letterHeight = letterHeight
         self.bold = bold
         self.italic = italic
+        self.glFont = None  # will be set by the self.font attribute setter
+        self.font = font
+        # once font is set up we can set the shader (depends on rgb/a of font)
+        global shader
+        if shader is None:
+            if self.glFont.atlas.format == 'rgb':
+                shader = shaders.Shader(
+                    shaders.vertSimple, shaders.fragTextBox2)
+            else:
+                shader = shaders.Shader(
+                    shaders.vertSimple, shaders.fragTextBox2alpha)
+        # params about positioning
         self.anchor_y = anchor_y
         self.anchor_x = anchor_x
-        self._needVertexUpdate = False
+        self._needVertexUpdate = False  # this will be set True during layout
         # standard stimulus params
         self.pos = pos
         self.color = color
@@ -63,10 +81,18 @@ class TextBox2(BaseVisualStim, ContainerMixin):
         self.opacity = opacity
         self._indices = None
         self._colors = None
+        self.nChars = None  # len(text) can be more (if including format codes)
 
         self.flipHoriz = flipHoriz
         self.flipVert = flipVert
         self.text = text  # setting this triggers a _layout() call so do last
+
+    @attributeSetter
+    def font(self, fontName, italic=False, bold=False):
+        self.__dict__['font'] = fontName
+        size = self.letterHeight  # todo: this needs scaling to pixels
+        self.glFont = allFonts.getGLFont(fontName, size=size,
+                                       bold=self.bold, italic=self.italic)
 
     @attributeSetter
     def text(self, text):
@@ -77,45 +103,70 @@ class TextBox2(BaseVisualStim, ContainerMixin):
         """Layout the text, calculating the vertex locations
         """
         text = self.text
+        text = text.replace(r'<i>', codes['ITAL_START'])
+        text = text.replace(r'<\i>', codes['ITAL_END'])
+        text = text.replace(r'<b>', codes['BOLD_START'])
+        text = text.replace('<\b>', codes['BOLD_END'])
         color = self.color
-        font = self.font
-        self.vertices = np.zeros((len(text)*4,2), dtype=np.float32)
-        self._indices  = np.zeros((len(text)*6, ), dtype=np.uint)
-        self._colors   = np.zeros((len(text)*4,4), dtype=np.float32)
-        self._texcoords= np.zeros((len(text)*4,2), dtype=np.float32)
+        font = self.glFont
+
+        self.vertices = np.zeros((len(text)*4, 2), dtype=np.float32)
+        self._indices = np.zeros((len(text)*6), dtype=np.uint)
+        self._colors = np.zeros((len(text)*4, 4), dtype=np.float32)
+        self._texcoords = np.zeros((len(text)*4, 2), dtype=np.float32)
         pen = [0,0]
         prev = None
+        fakeItalic = 0.0
+        fakeBold = 0.0
+        boldPenAdvance = 1.0
+        nChars = -1
+        # for some reason glyphs too wide when using alpha channel only
+        if font.atlas.format == 'alpha':
+            alphaCorrection = 1/3.0
+        else:
+            alphaCorrection = 1
 
-        for i,charcode in enumerate(text):
+        for i, charcode in enumerate(text):
+            if charcode in codes.values():
+                if charcode == codes['ITAL_START']:
+                    fakeItalic = 0.1 * font.size
+                elif charcode == codes['ITAL_END']:
+                    fakeItalic = 0.0
+                elif charcode == codes['BOLD_START']:
+                    fakeBold = 0.3 * font.size
+                elif charcode == codes['BOLD_END']:
+                    pen[0] -= fakeBold/2  # we expected bigger pen move so cut
+                    fakeBold = 0.0
+                continue
+            nChars += 1
             glyph = font[charcode]
             kerning = glyph.get_kerning(prev)
-            print(kerning)
-            x0 = pen[0] + glyph.offset[0] + kerning
-            x0 = int(x0)
-            y0 = pen[1] + glyph.offset[1]
-            x1 = x0 + glyph.size[0]
-            y1 = y0 - glyph.size[1]
+            xBotL = pen[0] + (glyph.offset[0] + kerning) - fakeItalic -fakeBold/2
+            xTopL = pen[0] + (glyph.offset[0] + kerning) -fakeBold/2
+            yTop = pen[1] + glyph.offset[1]
+            xBotR = xBotL + glyph.size[0]*alphaCorrection + fakeBold
+            xTopR = xTopL + glyph.size[0]*alphaCorrection + fakeBold
+            yBot = yTop - glyph.size[1]
             u0 = glyph.texcoords[0]
             v0 = glyph.texcoords[1]
             u1 = glyph.texcoords[2]
             v1 = glyph.texcoords[3]
 
-
-            index     = i*4
-            indices   = [index, index+1, index+2, index, index+2, index+3]
-            vertices  = [[x0,y0],[x0,y1],[x1,y1], [x1,y0]]
+            index = i*4
+            indices = [index, index+1, index+2, index, index+2, index+3]
+            vertices = [[xTopL,yTop],[xBotL,yBot],[xBotR,yBot], [xTopR,yTop]]
             texcoords = [[u0,v0],[u0,v1],[u1,v1], [u1,v0]]
-            colors    = [color,]*4
 
             self.vertices[i*4:i*4+4] = vertices
             self._indices[i*6:i*6+6] = indices
             self._texcoords[i*4:i*4+4] = texcoords
             self._colors[i*4:i*4+4] = color
-            pen[0] = pen[0]+glyph.advance[0]/64.0 + kerning
+            pen[0] = pen[0]+(glyph.advance[0]/64.0 + kerning) + fakeBold/2
             pen[1] = pen[1]+glyph.advance[1]/64.0
             prev = charcode
 
-        width = pen[0]-glyph.advance[0]/64.0+glyph.size[0]
+        self.nChars = nChars
+        width = pen[0]-glyph.advance[0]/64.0+glyph.size[0]*alphaCorrection
 
         if self.anchor_y == 'top':
             dy = -round(font.ascender)
@@ -134,12 +185,13 @@ class TextBox2(BaseVisualStim, ContainerMixin):
             dx = 0
         self.vertices += (round(dx), round(dy))
         # if we had to add more glyphs to make possible then 
-        if self.font._dirty:
-            self.atlas.upload()
-            self.font._dirty = False
+        if self.glFont._dirty:
+            self.glFont.atlas.upload()
+            self.glFont._dirty = False
         self._needVertexUpdate = True
 
     def draw(self):
+        global shader
         if self._needVertexUpdate:
             self._updateVertices()
         gl.glPushMatrix()
@@ -153,19 +205,21 @@ class TextBox2(BaseVisualStim, ContainerMixin):
         gl.glEnableClientState(gl.GL_TEXTURE_COORD_ARRAY)
         gl.glEnableClientState(gl.GL_VERTEX_ARRAY)
 
-        gl.glVertexPointer(2, gl.GL_FLOAT, 0, self.verticesPix)
-
-        gl.glColorPointer(4, gl.GL_FLOAT, 0, self._colors)
-        gl.glTexCoordPointer(2, gl.GL_FLOAT, 0, self._texcoords)
+        gl.glVertexPointer(2, gl.GL_FLOAT, 0,
+                           self.verticesPix)
+        gl.glColorPointer(4, gl.GL_FLOAT, 0,
+                          self._colors)
+        gl.glTexCoordPointer(2, gl.GL_FLOAT, 0,
+                             self._texcoords)
 
         gl.glEnable( gl.GL_BLEND )
 
-        self.shader.bind()
-        self.shader.setInt('texture', 0)
-        self.shader.setFloat('pixel', [1.0/512, 1.0/512])
+        shader.bind()
+        shader.setInt('texture', 0)
+        shader.setFloat('pixel', [1.0/512, 1.0/512])
         gl.glDrawElements(gl.GL_TRIANGLES, len(self._indices),
                           gl.GL_UNSIGNED_INT, self._indices)
-        self.shader.unbind()
+        shader.unbind()
         gl.glDisableVertexAttribArray( 1 );
         gl.glDisableClientState(gl.GL_VERTEX_ARRAY)
         gl.glDisableClientState(gl.GL_COLOR_ARRAY)
@@ -211,3 +265,4 @@ class TextBox2(BaseVisualStim, ContainerMixin):
             self.__dict__['_borderPix'] = border
 
         self._needVertexUpdate = False
+
