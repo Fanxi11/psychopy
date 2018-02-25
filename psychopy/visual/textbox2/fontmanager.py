@@ -23,6 +23,7 @@ import OpenGL.GL as gl
 import ctypes
 import glob
 
+from psychopy import logging
 from psychopy.constants import PY3
 if PY3:
     unichr = chr
@@ -110,31 +111,6 @@ class _TextureAtlas:
         else:
             raise TypeError("TextureAtlas should have format of 'alpha' or "
                             "'rgb' not {}".format(repr(format)))
-
-    def upload(self):
-        """
-        Upload atlas data into video memory.
-        """
-        if not self.textureID:
-            self.textureID = gl.glGenTextures(1)
-
-        gl.glBindTexture( gl.GL_TEXTURE_2D, self.textureID )
-        gl.glTexParameteri( gl.GL_TEXTURE_2D,
-                            gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP )
-        gl.glTexParameteri( gl.GL_TEXTURE_2D,
-                            gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP )
-        gl.glTexParameteri( gl.GL_TEXTURE_2D,
-                            gl.GL_TEXTURE_MAG_FILTER, gl.GL_LINEAR )
-        gl.glTexParameteri( gl.GL_TEXTURE_2D,
-                            gl.GL_TEXTURE_MIN_FILTER, gl.GL_LINEAR )
-        if self.format == 'alpha':
-            gl.glTexImage2D( gl.GL_TEXTURE_2D, 0, gl.GL_ALPHA,
-                             self.width, self.height, 0,
-                             gl.GL_ALPHA, gl.GL_UNSIGNED_BYTE, self.data )
-        else:
-            gl.glTexImage2D( gl.GL_TEXTURE_2D, 0, gl.GL_RGB,
-                             self.width, self.height, 0,
-                             gl.GL_RGB, gl.GL_UNSIGNED_BYTE, self.data )
 
     def set_region(self, region, data):
         """
@@ -293,8 +269,9 @@ class GLFont:
         self.filename = filename
         self.size = size
         self.glyphs = {}
-        face = ft.Face( self.filename )
+        face = ft.Face(filename)
         face.set_char_size( int(self.size*64))
+        self.info = FontInfo(filename, face)
         self._dirty = False
         metrics = face.size
         self.ascender  = metrics.ascender/64.0
@@ -311,6 +288,15 @@ class GLFont:
             self.load('%c' % charcode)
         return self.glyphs[charcode]
 
+    def __str__(self):
+        """Returns a string rep of the font, such as 'Arial_24_bold' """
+        return "{}_{}".format(self.info, self.size)
+
+    @property
+    def name(self):
+        """Name of the Font (e.g. 'Arial_24_bold')
+        """
+        return str(self)
 
     @property
     def textureID(self):
@@ -327,6 +313,8 @@ class GLFont:
         """
         :return:
         """
+        logging.debug("Preloading entire glyph set for Texture Font {}"
+                     .format(self.name))
         face = ft.Face( self.filename)
         
         n = 0
@@ -336,8 +324,10 @@ class GLFont:
                 break
             
             self.load(unichr(c[1]), face=face)
+        logging.debug("Preloading of glyph set for Texture Font {} complete"
+                     .format(self.name))
 
-    def load(self, charcodes = '', face=None):
+    def load(self, charcodes='', face=None):
         """
         Build glyphs corresponding to individual characters in charcodes.
 
@@ -424,6 +414,35 @@ class GLFont:
                     g.kerning[charcode] = kerning.x/(64.0*64.0)
 
 
+    def upload(self):
+        """Upload the font data into graphics card memory.
+        """
+        if not self.atlas.textureID:
+            self.atlas.textureID = gl.glGenTextures(1)
+        logging.debug("Uploading Texture Font {} to graphics card"
+                     .format(self.name))
+        gl.glBindTexture( gl.GL_TEXTURE_2D, self.atlas.textureID )
+        gl.glTexParameteri( gl.GL_TEXTURE_2D,
+                            gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP )
+        gl.glTexParameteri( gl.GL_TEXTURE_2D,
+                            gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP )
+        gl.glTexParameteri( gl.GL_TEXTURE_2D,
+                            gl.GL_TEXTURE_MAG_FILTER, gl.GL_LINEAR )
+        gl.glTexParameteri( gl.GL_TEXTURE_2D,
+                            gl.GL_TEXTURE_MIN_FILTER, gl.GL_LINEAR )
+        if self.format == 'alpha':
+            gl.glTexImage2D( gl.GL_TEXTURE_2D, 0, gl.GL_ALPHA,
+                             self.atlas.width, self.atlas.height, 0,
+                             gl.GL_ALPHA, gl.GL_UNSIGNED_BYTE, self.atlas.data )
+        else:
+            gl.glTexImage2D( gl.GL_TEXTURE_2D, 0, gl.GL_RGB,
+                             self.atlas.width, self.atlas.height, 0,
+                             gl.GL_RGB, gl.GL_UNSIGNED_BYTE, self.atlas.data )
+        logging.debug("Upload of Texture Font {} complete"
+                     .format(self.name))
+
+        gl.glBindTexture(gl.GL_TEXTURE_2D, 0)
+
 class TextureGlyph:
     """
     A texture glyph gathers information relative to the size/offset/advance and
@@ -498,22 +517,6 @@ def findSystemFonts():
     return fontPaths
 
 
-def getIdFromArgs(fontInfo, size, bold, italic):
-    """Generate a string identifier for this font/size to store in font dict
-
-    :param fontInfo: FontInfo class from FontManager.getFontsMatching()
-    :param size:
-    :param dpi:
-    :return: a string
-    """
-    flags=""
-    if bold:
-        flags += "_bold"
-    if italic:
-        flags += "_italic"
-    return "%s_%d%s" % (fontInfo.getID(), size, flags)
-
-
 class FontManager(object):
     """FontManager provides a simple API for finding and loading font files
     (.ttf) via the FreeType lib
@@ -553,13 +556,24 @@ class FontManager(object):
         self.monospaceOnly = monospaceOnly
         self.updateFontInfo(monospaceOnly)
 
+    def __str__(self):
+        S = "Loaded:\n"
+        if len(self.fontDict):
+            for name in self.fontDict:
+                S += "  {}\n".format(name)
+        else:
+            S += "None\n"
+        S += ("Available: {} see fonts.getFontFamilyNames()\n"
+              .format(len(self.getFontFamilyNames())))
+        return S
+
     def getFontFamilyNames(self):
         """Returns a list of the available font family names.
         """
         return list(self._available_fontInfo.keys())
 
     def getFontStylesForFamily(self, family_name):
-        """For the given family_name, a list of style names supported is
+        """For the given family, a list of style names supported is
         returned.
         """
         style_dict = self._available_fontInfo.get(family_name)
@@ -670,8 +684,8 @@ class FontManager(object):
     # Class methods for FontManager below this comment should not need to be
     # used by user scripts in most situations. Accessing them is okay.
 
-    def getGLFont(self, name, size=32, bold=False, italic=False,
-                  monospace=False):
+    def getFont(self, name, size=32, bold=False, italic=False,
+                monospace=False):
         """
         Return a FontAtlas object that matches the family name, style info,
         and size provided. FontAtlas objects are cached, so if multiple
@@ -683,27 +697,13 @@ class FontManager(object):
         if len(fontInfos) == 0:
             return False
         fontInfo = fontInfos[0]
-        fid = getIdFromArgs(fontInfo, size, bold, italic)
-        glFont = self.fontDict.get(fid)
+        identifier = "{}_{}".format(str(fontInfo), size)
+        glFont = self.fontDict.get(identifier)
         if glFont is None:
             glFont = GLFont(fontInfo.path, size)
-            glFont = self.fontDict.setdefault(fid, glFont)  # gets
+            self.fontDict[identifier] = glFont
 
         return glFont
-
-    def getFontInfo(self, refresh=False, monospace=False):
-        """
-        Returns the available font information as a dict of dict's.
-        The first level dict has keys for the available font families.
-        The second level dict has keys for the available styles of the
-        associated font family. The values in the second level font
-        family - style dict are each a list containing FontInfo objects.
-        There is one FontInfo object for each physical font file found that
-        matches the associated font family and style.
-        """
-        if refresh or not self._available_fontInfo:
-            self.updateFontInfo(monospace)
-        return self._available_fontInfo
 
     def updateFontInfo(self, monospaceOnly=False):
         self._available_fontInfo.clear()
@@ -757,8 +757,8 @@ class FontInfo(object):
 
     def __init__(self, fp, face):
         self.path = fp
-        self.family_name = face.family_name
-        self.style_name = face.style_name
+        self.family = face.family_name
+        self.style = face.style_name
         self.charmaps = [charmap.encoding_name for charmap in face.charmaps]
         self.num_faces = face.num_faces
         self.num_glyphs = face.num_glyphs
@@ -768,10 +768,14 @@ class FontInfo(object):
         self.monospace = face.is_fixed_width
         self.charmap_id = face.charmap.index
         self.label = "%s_%s" % (face.family_name, face.style_name)
-        self.id = self.label
 
-    def getID(self):
-        return self.id
+    def __str__(self):
+        """Generate a string identifier for this font name_style
+        """
+        fullName = "{}".format(self.family)
+        if self.style:
+            fullName += "_" + self.style
+        return fullName
 
     def asdict(self):
         d = {}
