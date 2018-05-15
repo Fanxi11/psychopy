@@ -57,7 +57,6 @@ class SliderComponent(BaseComponent):
                  size='1.0',
                  pos='0, -0.4',
                  flip=False,
-                 style='rating',
                  granularity=0,
                  textSize=1.0,
                  color="LightGray",
