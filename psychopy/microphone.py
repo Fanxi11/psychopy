@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """Audio capture and analysis using pyo"""
@@ -110,7 +110,7 @@ class AudioCapture(object):
         def run(self, filename, sec, sampletype=0, buffering=16,
                 chnl=0, chnls=2):
             self.running = True
-            # chnl from pyo.pa_get_input_devices()
+            # chnl from psychopy.sound.backend.get_input_devices()
             inputter = pyo.Input(chnl=chnl, mul=1)
             self.recorder = pyo.Record(inputter, filename, chnls=chnls,
                                        fileformat=0, sampletype=sampletype,
@@ -925,7 +925,7 @@ class Speech2Text(object):
         # http://thejosephturner.com/blog/2011/03/19/https-certificate-verification-in-python-with-urllib2/
         # set up the https request:
         url = 'https://' + host + '?xjerr=1&' +\
-              'client=psychopy2&' +\
+              'client=psychopy3&' +\
               'lang=' + lang + '&'\
               'pfilter=%d' % pro_filter + '&'\
               'maxresults=%d' % results

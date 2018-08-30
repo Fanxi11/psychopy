@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, print_function
@@ -90,6 +90,7 @@ class SimpleGrid(grid.Grid):  # , wxGridAutoEditMixin):
         for nRow in range(self.nRows):
             for nCol in range(self.nCols):
                 self.SetCellEditor(nRow, nCol, self.numEditor)
+                self.numEditor.IncRef()
         self.setData(data)
         # self.SetMargins(-5,-5)
         self.Bind(wx.EVT_IDLE, self.OnIdle)
@@ -551,7 +552,7 @@ class MainFrame(wx.Frame):
     def onChangeMonSelection(self, event):
         if self.unSavedMonitor:
             if self.currentMonName == self.ctrlMonList.GetStringSelection():
-                # it didnt' really change
+                # it didn't really change
                 return 1
             # warn user that data will be lost
             msg = _translate('Save changes to monitor?')

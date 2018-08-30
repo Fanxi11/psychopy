@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 # This file by Andrew Schofield
 
@@ -238,9 +238,8 @@ class NoiseStimComponent(BaseVisualComponent):
 
         msg = _translate("OpenGL Blendmode [avg, add (avg is most common mode in PsychoPy, add is used if you want to generate the sum of two components)]")
         self.params['blendmode'] = Param(
-            blendmode, valType='str', allowedTypes=[],
+            blendmode, valType='str', allowedVals=['avg', 'add'],
             updates='constant',
-            allowedVals=[],
             allowedUpdates=['constant', 'set every repeat', 'set every frame'],
             hint=msg,
             label=_localized['blendmode'], categ="Basic")

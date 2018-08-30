@@ -1,5 +1,5 @@
 <?xml version="1.0" ?>
-<PsychoPy2experiment encoding="utf-8" version="1.90.0">
+<PsychoPy2experiment encoding="utf-8" version="1.90.1">
   <Settings>
     <Param name="Monitor" updates="None" val="testMonitor" valType="str"/>
     <Param name="color" updates="None" val="$[0,0,0]" valType="str"/>
@@ -491,7 +491,7 @@
       <Param name="loopType" updates="None" val="random" valType="str"/>
       <Param name="nReps" updates="None" val="6" valType="code"/>
       <Param name="endPoints" updates="None" val="[0, 1]" valType="num"/>
-      <Param name="conditions" updates="None" val="[{'angle': 0, 'leftori': 0, 'rightori': 0, 'same': u'n'}, {'angle': 0, 'leftori': 0, 'rightori': 0, 'same': u'y'}, {'angle': 45, 'leftori': 0, 'rightori': 45, 'same': u'n'}, {'angle': 45, 'leftori': 0, 'rightori': 45, 'same': u'y'}, {'angle': 90, 'leftori': 0, 'rightori': 90, 'same': u'n'}, {'angle': 90, 'leftori': 0, 'rightori': 90, 'same': u'y'}, {'angle': 135, 'leftori': 0, 'rightori': 135, 'same': u'n'}, {'angle': 135, 'leftori': 0, 'rightori': 135, 'same': u'y'}, {'angle': 180, 'leftori': 0, 'rightori': 180, 'same': u'n'}, {'angle': 180, 'leftori': 0, 'rightori': 180, 'same': u'y'}, {'angle': 225, 'leftori': 0, 'rightori': 225, 'same': u'n'}, {'angle': 225, 'leftori': 0, 'rightori': 225, 'same': u'y'}, {'angle': 270, 'leftori': 0, 'rightori': 270, 'same': u'n'}, {'angle': 270, 'leftori': 0, 'rightori': 270, 'same': u'y'}, {'angle': 315, 'leftori': 0, 'rightori': 315, 'same': u'n'}, {'angle': 315, 'leftori': 0, 'rightori': 315, 'same': u'y'}]" valType="str"/>
+      <Param name="conditions" updates="None" val="[{'angle': 0, 'leftori': 0, 'rightori': 0, 'same': 'n'}, {'angle': 0, 'leftori': 0, 'rightori': 0, 'same': 'y'}, {'angle': 45, 'leftori': 0, 'rightori': 45, 'same': 'n'}, {'angle': 45, 'leftori': 0, 'rightori': 45, 'same': 'y'}, {'angle': 90, 'leftori': 0, 'rightori': 90, 'same': 'n'}, {'angle': 90, 'leftori': 0, 'rightori': 90, 'same': 'y'}, {'angle': 135, 'leftori': 0, 'rightori': 135, 'same': 'n'}, {'angle': 135, 'leftori': 0, 'rightori': 135, 'same': 'y'}, {'angle': 180, 'leftori': 0, 'rightori': 180, 'same': 'n'}, {'angle': 180, 'leftori': 0, 'rightori': 180, 'same': 'y'}, {'angle': 225, 'leftori': 0, 'rightori': 225, 'same': 'n'}, {'angle': 225, 'leftori': 0, 'rightori': 225, 'same': 'y'}, {'angle': 270, 'leftori': 0, 'rightori': 270, 'same': 'n'}, {'angle': 270, 'leftori': 0, 'rightori': 270, 'same': 'y'}, {'angle': 315, 'leftori': 0, 'rightori': 315, 'same': 'n'}, {'angle': 315, 'leftori': 0, 'rightori': 315, 'same': 'y'}]" valType="str"/>
       <Param name="Selected rows" updates="None" val="" valType="str"/>
     </LoopInitiator>
     <Routine name="Trial"/>

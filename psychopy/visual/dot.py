@@ -6,7 +6,7 @@ determines how they change on every call to the .draw() method.
 """
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 # Bugfix by Andrew Schofield.
@@ -114,6 +114,8 @@ class DotStim(BaseVisualStim, ColorMixin, ContainerMixin):
             self.dotSize = numpy.array(dotSize)
         else:
             self.dotSize = dotSize
+        if self.win.useRetina:
+            self.dotSize *= 2  # double dot size to make up for 1/2-size pixels
         self.fieldShape = fieldShape
         self.__dict__['dir'] = dir
         self.speed = speed

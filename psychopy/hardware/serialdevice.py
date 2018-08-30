@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """Base class for serial devices. Includes some convenience methods to open
@@ -186,7 +186,7 @@ class SerialDevice(object):
         elif length > 1:
             retVal = self.com.readlines()
         else:  # was -1?
-            retVal = self.com.read(self.com.inWaiting)
+            retVal = self.com.read(self.com.inWaiting())
         return retVal
 
     def __del__(self):

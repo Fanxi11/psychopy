@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """This module has tools for fetching data about the system or the
@@ -37,6 +37,7 @@ from psychopy import visual, logging, core, data, web
 from psychopy.core import shellCall
 from psychopy.platform_specific import rush
 from psychopy import __version__ as psychopyVersion
+from psychopy.constants import PY3
 
 
 class RunTimeInfo(dict):
@@ -228,9 +229,6 @@ class RunTimeInfo(dict):
     def _setSystemInfo(self):
         """System info
         """
-        # system encoding
-        osEncoding = sys.getfilesystemencoding()
-
         # machine name
         self['systemHostName'] = platform.node()
 
@@ -321,26 +319,37 @@ class RunTimeInfo(dict):
             self['systemSec.pythonSSL'] = False
 
         # pyo for sound:
-        try:
-            travis = bool(str(os.environ.get('TRAVIS')).lower() == 'true')
-            assert not travis  # skip sound-related stuff on travis-ci.org
-
-            import pyo
-            self['systemPyoVersion'] = '%i.%i.%i' % pyo.getVersion()
+        if PY3:
+            import importlib.util
+            if importlib.util.find_spec('pyo') is not None:
+                self['systemPyoVersion'] = '-'
+        else:
+            import imp
             try:
-                # requires pyo svn r1024 or higher:
-                inp, out = pyo.pa_get_devices_infos()
-                for devList in [inp, out]:
-                    for key in devList:
-                        if isinstance(devList[key]['name'], str):
-                            devList[key]['name'] = devList[
-                                key]['name'].decode(osEncoding)
-                self['systemPyo.InputDevices'] = inp
-                self['systemPyo.OutputDevices'] = out
-            except AttributeError:
+                imp.find_module('pyo')
+                self['systemPyoVersion'] = '-'
+            except:
                 pass
-        except (AssertionError, ImportError):
-            pass
+        # try:
+        #     travis = bool(str(os.environ.get('TRAVIS')).lower() == 'true')
+        #     assert not travis  # skip sound-related stuff on travis-ci.org
+        # 
+        #     import pyo
+        #     self['systemPyoVersion'] = '%i.%i.%i' % pyo.getVersion()
+        #     try:
+        #         # requires pyo svn r1024 or higher:
+        #         import psychopy.sound
+        #         inp, out = psychopy.sound.get_devices_infos()
+        #         for devList in [inp, out]:
+        #             for key in devList:
+        #                 if isinstance(devList[key]['name'], str):
+        #                     devList[key]['name'] = devList[key]['name']
+        #         self['systemPyo.InputDevices'] = inp
+        #         self['systemPyo.OutputDevices'] = out
+        #     except AttributeError:
+        #         pass
+        # except (AssertionError, ImportError):
+        #     pass
 
         # flac (free lossless audio codec) for google-speech:
         flacv = ''
@@ -561,7 +570,7 @@ class RunTimeInfo(dict):
         """Return a string that is a legal python (dict), and close
         to YAML, .ini, and configObj syntax
         """
-        info = '{\n#[ PsychoPy2 RuntimeInfoStart ]\n'
+        info = '{\n#[ PsychoPy3 RuntimeInfoStart ]\n'
         sections = ['PsychoPy', 'Experiment',
                     'System', 'Window', 'Python', 'OpenGL']
         for sect in sections:
@@ -571,7 +580,7 @@ class RunTimeInfo(dict):
             # get keys for items matching this section label;
             #  use reverse-alpha order if easier to read:
             revSet = ('PsychoPy', 'Window', 'Python', 'OpenGL')
-            sectKeys.sort(key=str.lower, reverse=bool(sect in revSet))
+            sectKeys.sort(reverse=bool(sect in revSet))
             for k in sectKeys:
                 selfk = self[k]  # alter a copy for display purposes
                 try:
@@ -600,7 +609,7 @@ class RunTimeInfo(dict):
                 # in an archive
                 if k != 'systemUserProcFlaggedPID':
                     info += '    "%s": "%s",\n' % (k, selfk)
-        info += '#[ PsychoPy2 RuntimeInfoEnd ]\n}\n'
+        info += '#[ PsychoPy3 RuntimeInfoEnd ]\n}\n'
         return info
 
     def __str__(self):

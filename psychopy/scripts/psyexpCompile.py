@@ -1,35 +1,64 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""Compiles a Python script (*.py) form a PsychoPy Builder Experiment file (.psyexp)
-"""
-
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
-from __future__ import absolute_import, print_function
-
 import argparse
+import codecs
+from psychopy.app.builder import experiment
+from psychopy import logging
 
+# parse args for subprocess
 parser = argparse.ArgumentParser(description='Compile your python file from here')
 parser.add_argument('infile', help='The input (psyexp) file to be compiled')
 parser.add_argument('--version', '-v', help='The PsychoPy version to use for compiling the script. e.g. 1.84.1')
 parser.add_argument('--outfile', '-o', help='The output (py) file to be generated (defaults to the ')
 
-args = parser.parse_args()
-if args.outfile is None:
-    args.outfile = args.infile.replace(".psyexp",".py")
-print(args)
+def compileScript(infile=None, version=None, outfile=None):
+    """
+    This function will compile either Python or JS PsychoPy script from .psyexp file.
+        :param infile: The input (psyexp) file to be compiled
+        :param version: The PsychoPy version to use for compiling the script. e.g. 1.84.1. Warning: Cannot set version
+                        if module imported. Set version from command line interface only.
+        :param outfile: The output (py) file to be generated (defaults to Python script.
+    """
+    if __name__ != '__main__' and version not in [None, 'None', 'none', '']:
+        version = None
+        msg = "You cannot set version by calling compileScript() manually. Setting 'version' to None."
+        logging.warning(msg)
 
-if args.version:
-    from psychopy import useVersion
-    useVersion(args.version)
+    # Check infile type
+    if isinstance(infile, experiment.Experiment):
+        thisExp = infile
+    else:
+        thisExp = experiment.Experiment()
+        thisExp.loadFromXML(infile)
+        # Write version to experiment init text
+        thisExp.psychopyVersion = version
+    # Set output type, either JS or Python
+    if outfile.endswith(".js"):
+        targetOutput = "PsychoJS"
+    else:
+        targetOutput = "PsychoPy"
 
-from psychopy.app.builder import experiment
+    # Write script
+    script = thisExp.writeScript(outfile, target=targetOutput)
+    outfile.replace('.py', targetOutput[-2:].lower())
+    # Output script to file
+    with codecs.open(outfile, 'w', 'utf-8') as f:
+        f.write(script.getvalue())
+    f.close()
 
-exp = experiment.Experiment(filename=infile)
-if args.outfile.endswith(".html"):
-    exp.writeScript(args.outfile, target="PsychoJS")
-else:
-    exp.writeScript(args.outfile, target="PsychoPy")
+if __name__ == "__main__":
+    # define args
+    args = parser.parse_args()
+    if args.outfile is None:
+        args.outfile = args.infile.replace(".psyexp", ".py")
+    # Set version
+    if args.version:
+        from psychopy import useVersion
+        useVersion(args.version)
+    # run PsychoPy with useVersion active
+    compileScript(args.infile, args.version, args.outfile)

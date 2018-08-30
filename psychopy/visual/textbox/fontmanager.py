@@ -18,6 +18,8 @@ import unicodedata as ud
 from matplotlib import font_manager
 from psychopy.core import getTime
 
+from freetype import Face, FT_LOAD_RENDER, FT_LOAD_FORCE_AUTOHINT, FT_Exception
+                                                     
 from .textureatlas import TextureAtlas
 
 from pyglet.gl import (glGenLists, glNewList, GL_COMPILE, GL_QUADS,
@@ -170,7 +172,7 @@ class FontManager(object):
         a monospace font (as only monospace fonts are currently supported by
         TextBox).
 
-        Adding fonts to the FontManager is not persistant across runs of
+        Adding fonts to the FontManager is not persistent across runs of
         the script, so any extra font paths need to be added each time the
         script starts.
         """
@@ -504,14 +506,3 @@ class MonospaceFontAtlas(object):
         if self.charcode2unichr is not None:
             self.charcode2unichr.clear()
             self.charcode2unichr = None
-
-
-try:
-    from psychopy.visual.textbox.freetype_bf import (Face, FT_LOAD_RENDER,
-                                                     FT_LOAD_FORCE_AUTOHINT,
-                                                     FT_Exception)
-except Exception as e:
-    print("FreeType import Failed:", e)
-    import traceback
-    traceback.format_exc()
-    FontManager.freetype_import_error = e

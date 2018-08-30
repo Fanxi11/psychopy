@@ -4,16 +4,15 @@
 # To build simple dialogues etc. (requires pyqt4)
 #
 #  Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, print_function
 
 from builtins import str
-from past.builtins import basestring
+from past.builtins import unicode
 try:
-    from PyQt4 import QtGui
-    QtWidgets = QtGui  # in qt4 these were all in one package
+    from PyQt4 import QtGui as QtWidgets  # in qt4 these were all in one package
     from PyQt4.QtCore import Qt
 except ImportError:
     from PyQt5 import QtWidgets
@@ -22,7 +21,6 @@ except ImportError:
 
 from psychopy import logging
 import numpy as np
-import string
 import os
 import sys
 import json
@@ -30,16 +28,15 @@ from psychopy.localization import _translate
 
 OK = QtWidgets.QDialogButtonBox.Ok
 
-qtapp = None
+qtapp = QtWidgets.QApplication.instance()
 
 
 def ensureQtApp():
     global qtapp
-    # make sure there's a wxApp prior to showing a gui, e.g., for expInfo
+    # make sure there's a QApplication prior to showing a gui, e.g., for expInfo
     # dialog
     if qtapp is None:
         qtapp = QtWidgets.QApplication(sys.argv)
-    return qtapp
 
 
 wasMouseVisible = True
@@ -78,8 +75,7 @@ class Dlg(QtWidgets.QDialog):
                  labelButtonCancel=_translate(" Cancel "),
                  screen=-1):
 
-        global app  # avoid recreating for every gui
-        app = ensureQtApp()
+        ensureQtApp()
         QtWidgets.QDialog.__init__(self, None, Qt.WindowTitleHint)
 
         self.inputFields = []
@@ -182,7 +178,7 @@ class Dlg(QtWidgets.QDialog):
                 thisType = self.inputFieldTypes[ix]
 
                 try:
-                    if issubclass(thisType, basestring):
+                    if thisType in (str, unicode, bytes):
                         self.data[ix] = str(new_text)
                     elif thisType == tuple:
                         jtext = "[" + str(new_text) + "]"
@@ -191,11 +187,9 @@ class Dlg(QtWidgets.QDialog):
                         jtext = "[" + str(new_text) + "]"
                         self.data[ix] = json.loads(jtext)[0]
                     elif thisType == float:
-                        self.data[ix] = string.atof(str(new_text))
+                        self.data[ix] = float(new_text)
                     elif thisType == int:
-                        self.data[ix] = string.atoi(str(new_text))
-                    elif thisType == int:
-                        self.data[ix] = string.atol(str(new_text))
+                        self.data[ix] = int(new_text)
                     elif thisType == dict:
                         jtext = "[" + str(new_text) + "]"
                         self.data[ix] = json.loads(jtext)[0]
@@ -461,8 +455,7 @@ def fileSaveDlg(initFilePath="", initFileName="",
                    "txt (*.txt);;"
                    "pickled files (*.pickle *.pkl);;"
                    "shelved files (*.shelf)")
-    global qtapp  # avoid recreating for every gui
-    qtapp = ensureQtApp()
+    ensureQtApp()
 
     fdir = os.path.join(initFilePath, initFileName)
     r = QtWidgets.QFileDialog.getSaveFileName(parent=None, caption=prompt,
@@ -499,8 +492,7 @@ def fileOpenDlg(tryFilePath="",
 
     If user cancels, then None is returned.
     """
-    global qtapp  # avoid recreating for every gui
-    qtapp = ensureQtApp()
+    ensureQtApp()
 
     if allowed is None:
         allowed = ("All files (*.*);;"
@@ -524,29 +516,25 @@ def fileOpenDlg(tryFilePath="",
 
 
 def infoDlg(title=_translate("Information"), prompt=None):
-    global qtapp  # avoid recreating for every gui
-    qtapp = ensureQtApp()
+    ensureQtApp()
     _pr = _translate("No details provided. ('prompt' value not set).")
     QtWidgets.QMessageBox.information(None, title, prompt or _pr)
 
 
 def warnDlg(title=_translate("Warning"), prompt=None):
-    global qtapp  # avoid recreating for every gui
-    qtapp = ensureQtApp()
+    ensureQtApp()
     _pr = _translate("No details provided. ('prompt' value not set).")
     QtWidgets.QMessageBox.warning(None, title, prompt or _pr)
 
 
 def criticalDlg(title=_translate("Critical"), prompt=None):
-    global qtapp  # avoid recreating for every gui
-    qtapp = ensureQtApp()
+    ensureQtApp()
     _pr = _translate("No details provided. ('prompt' value not set).")
     QtWidgets.QMessageBox.critical(None, title, prompt or _pr)
 
 
 def aboutDlg(title=_translate("About Experiment"), prompt=None):
-    global qtapp  # avoid recreating for every gui
-    qtapp = ensureQtApp()
+    ensureQtApp()
     _pr = _translate("No details provided. ('prompt' value not set).")
     QtWidgets.QMessageBox.about(None, title, prompt or _pr)
 
@@ -654,7 +642,7 @@ if __name__ == '__main__':
              u"<br>"
              u"Written by: Dr. John Doe"
              u"<br>"
-             u"Created using <b>PsychoPy</b> © Copyright 2015, Jonathan Peirce")
+             u"Created using <b>PsychoPy</b> © Copyright 2018, Jonathan Peirce")
 
     # Restore full screen psychopy window
     # showWindow(win)

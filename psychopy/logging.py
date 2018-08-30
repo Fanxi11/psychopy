@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """Provides functions for logging error and other messages to one or more
@@ -185,6 +185,9 @@ class LogFile(object):
     def setLevel(self, level):
         """Set a new minimal level for the log file/stream
         """
+        if type(level) is not int:
+            raise TypeError("LogFile.setLevel() should be given an int, which"
+                            "is usually one of logging.INFO (not logging.info)")
         self.level = level
         self.logger._calcLowestTarget()
 

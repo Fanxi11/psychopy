@@ -6,18 +6,22 @@
 # remove editable installation
 $pips = @("pip2", "pip3")
 $pyN = @("27", "36")
-$pyPaths = @("C:\Python27\", "C:\PROGRA~1\Python36\")
-$names = @("PsychoPy2", "PsychoPy2_PY3")
+$pyPaths = @("C:\Python27\", "C:\Python36\")
+$names = @("PsychoPy3", "PsychoPy3_PY3")
+
 # get PsychoPy version from file
 $v = [Io.File]::ReadAllText("C:\Users\lpzjwp\code\psychopy\git\version").Trim()
 
-for ($i=1; $i -lt 3; $i++) {
-    & $pips[$i] uninstall psychopy -y
-    # install the current version to site-packages
-    & xcopy /I /Y psychopy\*.txt $pyPaths[$i]
-    & xcopy /Y C:\Windows\System32\avbin.dll $pyPaths[$i]\avbin.dll
-    if ($i -eq '1') {
-        xcopy /Y C:\Windows\System32\py*27.dll C:\Python27
+for ($i=0; $i -lt 2; $i++) {
+    [console]::beep(440,300); [console]::beep(880,300)
+    # try to uninstall psychopy from site-packages
+    Invoke-Expression ("{0} uninstall psychopy -y" -f $pips[$i])
+    # re-install the current version as editable/developer
+    Invoke-Expression ("{0} install . --no-deps" -f $pips[$i])
+	echo Installed current PsychoPy
+    xcopy /I /Y psychopy\*.txt $pyPaths[$i]
+    if ($i -eq '0') {
+        xcopy /Y C:\Windows\SysWOW64\py*27.dll C:\Python27
     }
     # build the installer
     $thisPath = $pyPaths[$i]
@@ -29,11 +33,13 @@ for ($i=1; $i -lt 3; $i++) {
 
     echo 'moving files to ..\dist'
 
-    # uninstall psychopy from site-packages
-    & $pips[$i] uninstall psychopy -y
+    # try to uninstall psychopy from site-packages
+    Invoke-Expression ("{0} uninstall psychopy -y" -f $pips[$i])
     # re-install the current version as editable/developer
-    & $pips[$i] install -e .
+    Invoke-Expression ("{0} install -e . --no-deps" -f $pips[$i])
 }
 
 Move-Item -Force "StandalonePsychoPy*.exe" ..\dist\
 Move-Item -Force dist\* ..\dist\
+
+[console]::beep(880,300); [console]::beep(440,300)

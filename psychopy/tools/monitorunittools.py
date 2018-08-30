@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """Functions and classes related to unit conversion respective to a particular
@@ -54,12 +54,20 @@ _unit2PixMappings['degFlat'] = _degFlat2pix
 
 
 def _norm2pix(vertices, pos, win):
-    return (pos + vertices) * win.size / 2.0
+    if win.useRetina:
+        return (pos + vertices) * win.size / 4.0
+    else:
+        return (pos + vertices) * win.size / 2.0
+
 _unit2PixMappings['norm'] = _norm2pix
 
 
 def _height2pix(vertices, pos, win):
-    return (pos + vertices) * win.size[1]
+    if win.useRetina:
+        return (pos + vertices) * win.size[1] / 2.0
+    else:
+        return (pos + vertices) * win.size[1]
+
 _unit2PixMappings['height'] = _height2pix
 
 

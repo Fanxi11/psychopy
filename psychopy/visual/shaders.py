@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """shaders programs for either pyglet or pygame
@@ -197,13 +197,20 @@ fragFBOtoFrame = '''
     }
     '''
 
+# for stimuli with no texture (e.g. shapes)
 fragSignedColor = '''
-    uniform sampler2D texture;
     void main() {
-        vec4 textureFrag = texture2D(texture,gl_TexCoord[0].st);
-        gl_FragColor.a = gl_Color.a*textureFrag.a;
+        gl_FragColor.rgb = ((gl_Color.rgb*2.0-1.0)+1.0)/2.0;
+        gl_FragColor.a = gl_Color.a;
     }
     '''
+fragSignedColor_adding = '''
+    void main() {
+        gl_FragColor.rgb = (gl_Color.rgb*2.0-1.0)/2.0;
+        gl_FragColor.a = gl_Color.a;
+    }
+    '''
+# for stimuli with just a colored texture
 fragSignedColorTex = '''
     uniform sampler2D texture;
     void main() {
@@ -230,6 +237,7 @@ fragSignedColorTexFont = '''
         gl_FragColor.a = gl_Color.a*textureFrag.a;
     }
     '''
+# for stimuli with a colored texture and a mask (gratings, etc.)
 fragSignedColorTexMask = '''
     uniform sampler2D texture, mask;
     void main() {
@@ -248,6 +256,7 @@ fragSignedColorTexMask_adding = '''
         gl_FragColor.rgb = textureFrag.rgb * (gl_Color.rgb*2.0-1.0)/2.0;
     }
     '''
+# RadialStim uses a 1D mask with a 2D texture
 fragSignedColorTexMask1D = '''
     uniform sampler2D texture;
     uniform sampler1D mask;
@@ -290,6 +299,7 @@ fragImageStim_adding = '''
         gl_FragColor.rgb = (textureFrag.rgb*2.0-1.0)*(gl_Color.rgb*2.0-1.0)/2.0;
     }
     '''
+# in every case our vertex shader is simple (we don't transform coords)
 vertSimple = """
     void main() {
             gl_FrontColor = gl_Color;
