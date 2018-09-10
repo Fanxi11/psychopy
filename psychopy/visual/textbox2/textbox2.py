@@ -115,17 +115,15 @@ class TextBox2(BaseVisualStim, ContainerMixin):
         text = text.replace('<\b>', codes['BOLD_END'])
         color = self.color
         font = self.glFont
-        print(font)
 
         self.vertices = np.zeros((len(text)*4, 2), dtype=np.float32)
         self._indices = np.zeros((len(text)*6), dtype=np.uint)
         self._colors = np.zeros((len(text)*4, 4), dtype=np.float32)
         self._texcoords = np.zeros((len(text)*4, 2), dtype=np.float32)
-        pen = [0,0]
+        pen = [0, 0]
         prev = None
         fakeItalic = 0.0
         fakeBold = 0.0
-        boldPenAdvance = 1.0
         nChars = -1
         # for some reason glyphs too wide when using alpha channel only
         if font.atlas.format == 'alpha':

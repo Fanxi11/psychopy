@@ -20,7 +20,6 @@ import math
 import numpy as np
 import freetype as ft
 import OpenGL.GL as gl
-import ctypes
 import glob
 
 from psychopy import logging
@@ -270,7 +269,7 @@ class GLFont:
         self.size = size
         self.glyphs = {}
         face = ft.Face(filename)
-        face.set_char_size( int(self.size*64))
+        face.set_char_size(int(self.size*64))
         self.info = FontInfo(filename, face)
         self._dirty = False
         metrics = face.size
@@ -284,8 +283,8 @@ class GLFont:
         """
         x.__getitem__(y) <==> x[y]
         """
-        if charcode not in self.glyphs.keys():
-            self.load('%c' % charcode)
+        if charcode not in self.glyphs:
+            self.fetch('%c' % charcode)
         return self.glyphs[charcode]
 
     def __str__(self):
@@ -309,25 +308,25 @@ class GLFont:
         self._dirty = False
         return self.atlas.textureID
 
-    def preloadAll(self, nMax=None):
+    def preload(self, nMax=None):
         """
         :return:
         """
-        logging.debug("Preloading entire glyph set for Texture Font {}"
-                     .format(self.name))
+        if nMax is None:
+            note = "entire glyph set"
+        else:
+            note = "{} glyphs".format(nMax)
+        logging.debug("Preloading {} for Texture Font {}"
+                      .format(note, self.name))
         face = ft.Face( self.filename)
-        
-        n = 0
-        chrs = list(face.get_chars())
-        for c in chrs:
-            if nMax is not None and n>nMax:
-                break
-            
-            self.load(unichr(c[1]), face=face)
-        logging.debug("Preloading of glyph set for Texture Font {} complete"
-                     .format(self.name))
 
-    def load(self, charcodes='', face=None):
+        chrs = (list(face.get_chars()))[:nMax]
+        charcodes = [unichr(c[1]) for c in chrs]
+        self.fetch(charcodes, face=face)
+        logging.debug("Preloading of glyph set for Texture Font {} complete"
+                      .format(self.name))
+
+    def fetch(self, charcodes='', face=None):
         """
         Build glyphs corresponding to individual characters in charcodes.
 
@@ -339,17 +338,16 @@ class GLFont:
         """
         if face is None:
             face = ft.Face( self.filename )
-        pen = ft.Vector(0,0)
-        hres = 16*72
-        hscale = 1.0/16
+
+        # if current glyph is same as last then maybe blank glyph?
+        lastGlyph = None
+        possibleBlank = None
+        nBlanks = 0
 
         for charcode in charcodes:
-            if charcode in self.glyphs.keys():
+            if charcode in self.glyphs:
                 continue
-            face.set_char_size( int(self.size * 64), 0, hres, 72 )
-            matrix = ft.Matrix( int((hscale) * 0x10000), int((0.0) * 0x10000),
-                             int((0.0)    * 0x10000), int((1.0) * 0x10000) )
-            face.set_transform( matrix, pen )
+            face.set_pixel_sizes(int(self.size), int(self.size))
 
             self._dirty = True
             flags = ft.FT_LOAD_RENDER | ft.FT_LOAD_FORCE_AUTOHINT
@@ -357,6 +355,13 @@ class GLFont:
 
             face.load_char( charcode, flags )
             bitmap = face.glyph.bitmap
+            # check if this looks like a blank (same as a prev glyph)
+            if bitmap.buffer == lastGlyph:
+                possibleBlank = lastGlyph
+            if bitmap.buffer == possibleBlank:  # whether newly detected or not
+                nBlanks += 1
+                continue
+            lastGlyph = bitmap.buffer
             left   = face.glyph.bitmap_left
             top    = face.glyph.bitmap_top
             width  = face.glyph.bitmap.width
@@ -364,24 +369,20 @@ class GLFont:
             pitch  = face.glyph.bitmap.pitch
 
             if self.format=='rgb':
-                x, y, w, h = self.atlas.get_region(width/5, rows + 2)
+                x, y, w, h = self.atlas.get_region(width/5, rows+2)
             else:
                 x, y, w, h = self.atlas.get_region(width+2, rows+2)
 
             if x < 0:
-                print ('Missed !')
-                continue
+                msg = ("Failed to fit char into font texture ({} at size {}px)"
+                       .format(face.family_name, self.size))
+                raise RuntimeError(msg)
+
             x,y = x+1, y+1
             w,h = w-2, h-2
-            data = []
-            for i in range(rows):
-                data.extend(bitmap.buffer[i*pitch:i*pitch+width])
-            if self.format == 'rgb':
-                data = np.array(data, dtype=np.ubyte).reshape(
-                    int(h), int(w), 3)
-            else:
-                data = np.array(data, dtype=np.ubyte).reshape(
-                    int(h), int(w))
+
+            data = np.array(bitmap.buffer).reshape(rows, pitch)
+            data = data[:h, :w]
 
             if self.format == 'rgb':
                 Z = (((data/255.0)**1.5)*255).astype(np.ubyte)
@@ -402,16 +403,31 @@ class GLFont:
 
             # Generate kerning
             for g in self.glyphs.values():
-                # 64 * 64 because of 26.6 encoding AND the transform matrix used
-                # in texture_font_load_face (hres = 64)
                 kerning = face.get_kerning(g.charcode, charcode,
                                            mode=ft.FT_KERNING_UNFITTED)
                 if kerning.x != 0:
-                    glyph.kerning[g.charcode] = kerning.x/(64.0*64.0)
+                    glyph.kerning[g.charcode] = kerning.x
                 kerning = face.get_kerning(charcode, g.charcode,
                                            mode=ft.FT_KERNING_UNFITTED)
                 if kerning.x != 0:
-                    g.kerning[charcode] = kerning.x/(64.0*64.0)
+                    g.kerning[charcode] = kerning.x
+
+        logging.info("loaded {} chars with {} blanks and {} valid"
+                     .format(len(charcodes), nBlanks, len(charcodes)-nBlanks))
+
+    def saveToCache(self):
+        """Store the current font texture as an image file.
+
+        As yet we aren't storing the offset, advance and texcoords as needed to
+        retrieve the necessary chars, but it's a start!
+            (see  TextureGlyph(charcode, size, offset, advance, texcoords) )
+
+        """
+        from PIL import Image
+        im = Image.fromarray(self.atlas.data)
+        fname = "{}/.psychopy3/{}_{}_texture.png".format(
+            os.path.expanduser("~"), self.name, self.size)
+        im.save(fname)
 
 
     def upload(self):
@@ -433,11 +449,11 @@ class GLFont:
         if self.format == 'alpha':
             gl.glTexImage2D( gl.GL_TEXTURE_2D, 0, gl.GL_ALPHA,
                              self.atlas.width, self.atlas.height, 0,
-                             gl.GL_ALPHA, gl.GL_UNSIGNED_BYTE, self.atlas.data )
+                             gl.GL_ALPHA, gl.GL_UNSIGNED_BYTE, self.atlas.data)
         else:
             gl.glTexImage2D( gl.GL_TEXTURE_2D, 0, gl.GL_RGB,
                              self.atlas.width, self.atlas.height, 0,
-                             gl.GL_RGB, gl.GL_UNSIGNED_BYTE, self.atlas.data )
+                             gl.GL_RGB, gl.GL_UNSIGNED_BYTE, self.atlas.data)
         logging.debug("Upload of Texture Font {} complete"
                      .format(self.name))
 
