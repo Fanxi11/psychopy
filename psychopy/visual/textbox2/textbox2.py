@@ -33,32 +33,59 @@ allFonts = FontManager()
 rgbShader = None
 alphaShader = None
 
-codes = {'BOLD_START' : u'\uE100',
-         'BOLD_END' : u'\uE101',
-         'ITAL_START' : u'\uE102',
-         'ITAL_END' : u'\uE103'}
+codes = {'BOLD_START': u'\uE100',
+         'BOLD_END': u'\uE101',
+         'ITAL_START': u'\uE102',
+         'ITAL_END': u'\uE103'}
+
+defaultLetterHeight = {'cm': 1.0,
+                       'deg': 1.0,
+                       'degs': 1.0,
+                       'degFlatPos': 1.0,
+                       'degFlat': 1.0,
+                       'norm': 0.1,
+                       'height': 0.2,
+                       'pix': 20,
+                       'pixels': 20}
+
+defaultBoxWidth = {'cm': 15.0,
+                   'deg': 15.0,
+                   'degs': 15.0,
+                   'degFlatPos': 15.0,
+                   'degFlat': 15.0,
+                   'norm': 1,
+                   'height': 1,
+                   'pix': 500,
+                   'pixels': 500}
 
 
 class TextBox2(BaseVisualStim, ContainerMixin):
     def __init__(self, win, text, font,
-                 pos=(0,0), units='pix', letterHeight=12,
-                 width=None, height=None,  # by default use the text contents
+                 pos=(0, 0), units='pix', letterHeight=12,
+                 size=None,
                  color=(1.0, 1.0, 1.0),
                  colorSpace='rgb',
                  opacity=1.0,
                  bold=False,
                  italic=False,
-                 anchor_x = 'left', anchor_y = 'baseline',
+                 anchor='center',
                  alignHoriz='center',
                  alignVert='center',
                  flipHoriz=False,
                  flipVert=False,
                  name='', autoLog=None):
+
         BaseVisualStim.__init__(self, win, units=units, name=name,
                                 autoLog=autoLog)
         self.win = win
         # first set params needed to create font (letter sizes etc)
         self.letterHeight = letterHeight
+        # self._pixLetterHeight helps get font size right but not final layout
+        self._pixLetterHeight = convertToPix((self.letterHeight,0), pos=(0,0),
+                                             units=self.units, win=self.win)[0]
+        if size is None:
+            size = (defaultBoxWidth[units], -1)
+        self.size = size  # the w,h of the text box (-1 means not constrained)
         self.bold = bold
         self.italic = italic
         self.glFont = None  # will be set by the self.font attribute setter
@@ -73,8 +100,7 @@ class TextBox2(BaseVisualStim, ContainerMixin):
             self.shader = alphaShader = shaders.Shader(
                 shaders.vertSimple, shaders.fragTextBox2alpha)
         # params about positioning
-        self.anchor_y = anchor_y
-        self.anchor_x = anchor_x
+        self.anchor = anchor  # 'center', 'top_left', 'bottom-center'...
         self._needVertexUpdate = False  # this will be set True during layout
         # standard stimulus params
         self.pos = pos
@@ -96,9 +122,32 @@ class TextBox2(BaseVisualStim, ContainerMixin):
             self.__dict__['font'] = fontName.name
         else:
             self.__dict__['font'] = fontName
-            size = self.letterHeight  # todo: this needs scaling to pixels
-            self.glFont = allFonts.getFont(fontName, size=size,
+            self.glFont = allFonts.getFont(fontName, size=self._pixLetterHeight,
                                            bold=self.bold, italic=self.italic)
+
+    @attributeSetter
+    def anchor(self, anchor):
+        """anchor is a string of terms, top, bottom, left, right, center
+
+        e.g. 'top_center', 'center-right', 'topleft', 'center' are all valid"""
+        self.__dict__['anchor'] = anchor
+        # look for unambiguous terms first (top, bottom, left, right)
+        self._anchorY = None
+        self._anchorX = None
+        if 'top' in anchor:
+            self._anchorY = 'top'
+        elif 'bottom' in anchor:
+            self._anchorY = 'bottom'
+        if 'right' in anchor:
+            self._anchorX = 'right'
+        elif 'left' in anchor:
+            self._anchorX = 'left'
+        # then 'center' can apply to either axis that isn't already set
+        if self._anchorX is None:
+            self._anchorX = 'center'
+        if self._anchorY is None:
+            self._anchorY = 'center'
+
 
     @attributeSetter
     def text(self, text):
@@ -109,17 +158,20 @@ class TextBox2(BaseVisualStim, ContainerMixin):
         """Layout the text, calculating the vertex locations
         """
         text = self.text
-        text = text.replace(r'<i>', codes['ITAL_START'])
-        text = text.replace(r'<\i>', codes['ITAL_END'])
-        text = text.replace(r'<b>', codes['BOLD_START'])
+        text = text.replace('<i>', codes['ITAL_START'])
+        text = text.replace('<\i>', codes['ITAL_END'])
+        text = text.replace('<b>', codes['BOLD_START'])
         text = text.replace('<\b>', codes['BOLD_END'])
         color = self.color
         font = self.glFont
 
-        self.vertices = np.zeros((len(text)*4, 2), dtype=np.float32)
-        self._indices = np.zeros((len(text)*6), dtype=np.uint)
-        self._colors = np.zeros((len(text)*4, 4), dtype=np.float32)
-        self._texcoords = np.zeros((len(text)*4, 2), dtype=np.float32)
+        # the vertices are initially pix (natural for freetype)
+        # then we convert them to the requested units for self._vertices
+        # then they are converted back during rendering using standard BaseStim
+        vertices = np.zeros((len(text) * 4, 2), dtype=np.float32)
+        self._indices = np.zeros((len(text) * 6), dtype=np.uint)
+        self._colors = np.zeros((len(text) * 4, 4), dtype=np.float32)
+        self._texcoords = np.zeros((len(text) * 4, 2), dtype=np.float32)
         pen = [0, 0]
         prev = None
         fakeItalic = 0.0
@@ -127,7 +179,7 @@ class TextBox2(BaseVisualStim, ContainerMixin):
         nChars = -1
         # for some reason glyphs too wide when using alpha channel only
         if font.atlas.format == 'alpha':
-            alphaCorrection = 1/3.0
+            alphaCorrection = 1 / 3.0
         else:
             alphaCorrection = 1
 
@@ -140,55 +192,59 @@ class TextBox2(BaseVisualStim, ContainerMixin):
                 elif charcode == codes['BOLD_START']:
                     fakeBold = 0.3 * font.size
                 elif charcode == codes['BOLD_END']:
-                    pen[0] -= fakeBold/2  # we expected bigger pen move so cut
+                    pen[0] -= fakeBold / 2  # we expected bigger pen move so cut
                     fakeBold = 0.0
                 continue
             nChars += 1
             glyph = font[charcode]
-            kerning = glyph.get_kerning(prev)
-            xBotL = pen[0] + glyph.offset[0] + kerning - fakeItalic - fakeBold/2
-            xTopL = pen[0] + glyph.offset[0] + kerning - fakeBold/2
+            # kerning = glyph.get_kerning(prev)
+            xBotL = pen[0] + glyph.offset[0] - fakeItalic - fakeBold / 2
+            xTopL = pen[0] + glyph.offset[0] - fakeBold / 2
             yTop = pen[1] + glyph.offset[1]
-            xBotR = xBotL + glyph.size[0]*alphaCorrection + fakeBold
-            xTopR = xTopL + glyph.size[0]*alphaCorrection + fakeBold
+            xBotR = xBotL + glyph.size[0] * alphaCorrection + fakeBold
+            xTopR = xTopL + glyph.size[0] * alphaCorrection + fakeBold
             yBot = yTop - glyph.size[1]
             u0 = glyph.texcoords[0]
             v0 = glyph.texcoords[1]
             u1 = glyph.texcoords[2]
             v1 = glyph.texcoords[3]
 
-            index = i*4
-            indices = [index, index+1, index+2, index, index+2, index+3]
-            vertices = [[xTopL,yTop],[xBotL,yBot],[xBotR,yBot], [xTopR,yTop]]
-            texcoords = [[u0,v0],[u0,v1],[u1,v1], [u1,v0]]
+            index = i * 4
+            indices = [index, index + 1, index + 2, index, index + 2, index + 3]
+            theseVertices = [[xTopL, yTop], [xBotL, yBot],  # for this letter
+                             [xBotR, yBot], [xTopR, yTop]]
+            texcoords = [[u0, v0], [u0, v1],
+                         [u1, v1], [u1, v0]]
 
-            self.vertices[i*4:i*4+4] = vertices
-            self._indices[i*6:i*6+6] = indices
-            self._texcoords[i*4:i*4+4] = texcoords
-            self._colors[i*4:i*4+4] = color
-            pen[0] = pen[0]+glyph.advance[0]/64.0 + kerning + fakeBold/2
-            pen[1] = pen[1]+glyph.advance[1]/64.0
+            vertices[i * 4:i * 4 + 4] = theseVertices
+            self._indices[i * 6:i * 6 + 6] = indices
+            self._texcoords[i * 4:i * 4 + 4] = texcoords
+            self._colors[i * 4:i * 4 + 4] = color
+            pen[0] = pen[0] + glyph.advance[0] + fakeBold / 2  # + kerning
+            pen[1] = pen[1] + glyph.advance[1]
             prev = charcode
 
         self.nChars = nChars
-        width = pen[0]-glyph.advance[0]/64.0+glyph.size[0]*alphaCorrection
+        width = pen[0] - glyph.advance[0] + glyph.size[0] * alphaCorrection
 
-        if self.anchor_y == 'top':
-            dy = -round(font.ascender)
-        elif self.anchor_y == 'center':
-            dy = +round(-font.height/2-font.descender)
-        elif self.anchor_y == 'bottom':
+        if self._anchorY == 'top':
+            dy = -round(font.ascender)  # TODO: so far this is only for 1 line
+        elif self._anchorY == 'center':
+            dy = +round(-font.height / 2 - font.descender)
+        elif self._anchorY == 'bottom':
             dy = -round(font.descender)
         else:
             dy = 0
 
-        if self.anchor_x == 'right':
-            dx = -width/1.0
-        elif self.anchor_x == 'center':
-            dx = -width/2.0
-        else:
+        if self._anchorX == 'right':
+            dx = -width / 1.0
+        elif self._anchorX == 'center':
+            dx = -width / 2.0
+        else:  # left is what happens automatically
             dx = 0
-        self.vertices += (round(dx), round(dy))
+        vertices += (round(dx), round(dy))
+
+        self.vertices = vertices * self.letterHeight / self._pixLetterHeight
         # if we had to add more glyphs to make possible then 
         if self.glFont._dirty:
             self.glFont.upload()
@@ -203,8 +259,8 @@ class TextBox2(BaseVisualStim, ContainerMixin):
 
         gl.glActiveTexture(gl.GL_TEXTURE0)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.glFont.textureID)
-        gl.glEnable( gl.GL_TEXTURE_2D )
-        gl.glDisable( gl.GL_DEPTH_TEST )
+        gl.glEnable(gl.GL_TEXTURE_2D)
+        gl.glDisable(gl.GL_DEPTH_TEST)
 
         gl.glEnableClientState(gl.GL_VERTEX_ARRAY)
         gl.glEnableClientState(gl.GL_COLOR_ARRAY)
@@ -220,18 +276,18 @@ class TextBox2(BaseVisualStim, ContainerMixin):
 
         self.shader.bind()
         self.shader.setInt('texture', 0)
-        self.shader.setFloat('pixel', [1.0/512, 1.0/512])
+        self.shader.setFloat('pixel', [1.0 / 512, 1.0 / 512])
         gl.glDrawElements(gl.GL_TRIANGLES, len(self._indices),
                           gl.GL_UNSIGNED_INT, self._indices)
         self.shader.unbind()
-        gl.glDisableVertexAttribArray( 1 );
+        gl.glDisableVertexAttribArray(1);
         gl.glDisableClientState(gl.GL_VERTEX_ARRAY)
         gl.glDisableClientState(gl.GL_COLOR_ARRAY)
         gl.glDisableClientState(gl.GL_TEXTURE_COORD_ARRAY)
 
         gl.glActiveTexture(gl.GL_TEXTURE0)
         gl.glBindTexture(gl.GL_TEXTURE_2D, 0)
-        gl.glDisable( gl.GL_TEXTURE_2D )
+        gl.glDisable(gl.GL_TEXTURE_2D)
 
         gl.glPopMatrix()
 
@@ -271,4 +327,3 @@ class TextBox2(BaseVisualStim, ContainerMixin):
             self.__dict__['_borderPix'] = border
 
         self._needVertexUpdate = False
-
