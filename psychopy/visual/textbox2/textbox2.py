@@ -81,8 +81,12 @@ class TextBox2(BaseVisualStim, ContainerMixin):
         # first set params needed to create font (letter sizes etc)
         self.letterHeight = letterHeight
         # self._pixLetterHeight helps get font size right but not final layout
-        self._pixLetterHeight = convertToPix((self.letterHeight,0), pos=(0,0),
-                                             units=self.units, win=self.win)[0]
+        if 'deg' in units:  # treat deg, degFlat or degFlatPos the same
+            scaleUnits = 'deg'  # scale units are just for font resolution
+        else:
+            scaleUnits = units
+        self._pixLetterHeight = convertToPix(self.letterHeight, pos=0,
+                                             units=scaleUnits, win=self.win)
         if size is None:
             size = (defaultBoxWidth[units], -1)
         self.size = size  # the w,h of the text box (-1 means not constrained)
@@ -159,9 +163,9 @@ class TextBox2(BaseVisualStim, ContainerMixin):
         """
         text = self.text
         text = text.replace('<i>', codes['ITAL_START'])
-        text = text.replace('<\i>', codes['ITAL_END'])
+        text = text.replace('</i>', codes['ITAL_END'])
         text = text.replace('<b>', codes['BOLD_START'])
-        text = text.replace('<\b>', codes['BOLD_END'])
+        text = text.replace('</b>', codes['BOLD_END'])
         color = self.color
         font = self.glFont
 
@@ -183,6 +187,7 @@ class TextBox2(BaseVisualStim, ContainerMixin):
         else:
             alphaCorrection = 1
 
+        charsThisWord = 0
         for i, charcode in enumerate(text):
             if charcode in codes.values():
                 if charcode == codes['ITAL_START']:
@@ -197,6 +202,10 @@ class TextBox2(BaseVisualStim, ContainerMixin):
                 continue
             nChars += 1
             glyph = font[charcode]
+            if charcode == '\n':
+                pen[1] -= font.height
+                pen[0] = 0
+                continue
             # kerning = glyph.get_kerning(prev)
             xBotL = pen[0] + glyph.offset[0] - fakeItalic - fakeBold / 2
             xTopL = pen[0] + glyph.offset[0] - fakeBold / 2
@@ -223,6 +232,9 @@ class TextBox2(BaseVisualStim, ContainerMixin):
             pen[0] = pen[0] + glyph.advance[0] + fakeBold / 2  # + kerning
             pen[1] = pen[1] + glyph.advance[1]
             prev = charcode
+
+            if charcode in [" ", "-", "\n"]:
+                charsThisWord = 0
 
         self.nChars = nChars
         width = pen[0] - glyph.advance[0] + glyph.size[0] * alphaCorrection

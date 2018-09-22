@@ -20,18 +20,17 @@ import sys
 win = visual.Window([800, 800], monitor='testMonitor')
 logging.exp("{:.3f}: created window".format(c.getTime()))
 
-text = u"<i>The quick<\i> brown <b>fox<\b> jumped"
+text = u"<i>The quick</i> brown <b>fox</b> jumped"
 text2 = u"Some text in Times"
-loremIpsum = """Lorem Ipsum is simply dummy text of the printing and typesetting 
-industry. Lorem Ipsum has been the industry's standard dummy text ever since 
-the 1500s, when an unknown printer took a galley of type and scrambled it to 
-make a type specimen book. It has survived not only five centuries, but also 
-the leap into electronic typesetting, remaining essentially unchanged. It was 
-popularised in the 1960s with the release of Letraset sheets containing Lorem 
-Ipsum passages, and more recently with desktop publishing software like Aldus 
-PageMaker including versions of Lorem Ipsum."""
+loremIpsum = """Lorem ipsum 
+dolor sit amet, **consectetur** adipiscing elit, sed do eiusmod tempor incididunt ut
+labore et dolore magna aliqua. <b>Ut</b> enim ad minim veniam, quis nostrud 
+exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis 
+aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
+fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in 
+culpa qui officia deserunt mollit anim id est laborum."""
 
-fontSize = 36
+fontSize = 12
 
 # preload some chars into a font to see how long it takes
 nChars = 256
@@ -44,7 +43,7 @@ logging.exp("{:.3f}: preloaded {} chars".format(c.getTime(), nChars))
 labels = []
 x, y = 0, 0
 #
-txt2 = TextBox2(win, color=[0, 0, 0, 0], text=text, font='Arial',
+txt2 = TextBox2(win, color=[0, 0, 0, 0], text=loremIpsum, font='Arial',
                 pos=(x, y), letterHeight=fontSize)
 txt2.draw()
 
