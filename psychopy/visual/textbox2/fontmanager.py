@@ -24,20 +24,21 @@ import glob
 
 from psychopy import logging
 from psychopy.constants import PY3
+
 if PY3:
     unichr = chr
 
 font_family_aliases = set([
-        'serif',
-        'sans-serif',
-        'sans serif',
-        'cursive',
-        'fantasy',
-        'monospace',
-        'sans'])
+    'serif',
+    'sans-serif',
+    'sans serif',
+    'cursive',
+    'fantasy',
+    'monospace',
+    'sans'])
 
 #  OS Font paths
-X11FontDirectories  = [
+X11FontDirectories = [
     # an old standard installation point
     "/usr/X11R6/lib/X11/fonts/TTF/",
     "/usr/X11/lib/X11/fonts",
@@ -47,7 +48,7 @@ X11FontDirectories  = [
     "/usr/local/share/fonts/",
     # common application, not really useful
     "/usr/lib/openoffice/share/fonts/truetype/",
-    ]
+]
 
 OSXFontDirectories = [
     "/Library/Fonts/",
@@ -79,7 +80,8 @@ class _TextureAtlas:
     atlas.set_region(region, data)
     """
 
-    def __init__(self, width=1024, height=1024, format='alpha'):
+    def __init__(self, width=2048, height=2048, format='alpha',
+                 name='fontname'):  # name just for logging purposes
         """
         Initialize a new atlas of given size.
 
@@ -95,10 +97,11 @@ class _TextureAtlas:
         format : 'alpha' or 'rgb'
             Depth of the underlying texture
         """
+        self.name = name
         self.width = int(math.pow(2, int(math.log(width, 2) + 0.5)))
         self.height = int(math.pow(2, int(math.log(height, 2) + 0.5)))
         self.format = format
-        self.nodes = [(0,0,self.width),]
+        self.nodes = [(0, 0, self.width), ]
         self.textureID = 0
         self.used = 0
         if format == 'rgb':
@@ -126,10 +129,10 @@ class _TextureAtlas:
         """
 
         x, y, width, height = region
-        if self.format=='rgb':
-            self.data[int(y):int(y+height),int(x):int(x+width), :] = data
+        if self.format == 'rgb':
+            self.data[int(y):int(y + height), int(x):int(x + width), :] = data
         else:
-            self.data[int(y):int(y+height),int(x):int(x+width)] = data
+            self.data[int(y):int(y + height), int(x):int(x + width)] = data
 
     def get_region(self, width, height):
         """
@@ -158,27 +161,27 @@ class _TextureAtlas:
             y = self.fit(i, width, height)
             if y >= 0:
                 node = self.nodes[i]
-                if (y+height < best_height or
-                    (y+height == best_height and node[2] < best_width)):
-                    best_height = y+height
+                if (y + height < best_height or
+                        (y + height == best_height and node[2] < best_width)):
+                    best_height = y + height
                     best_index = i
                     best_width = node[2]
                     region = node[0], y, width, height
 
         if best_index == -1:
-            return -1,-1,0,0
+            return -1, -1, 0, 0
 
-        node = region[0], region[1]+height, width
+        node = region[0], region[1] + height, width
         self.nodes.insert(best_index, node)
 
-        i = best_index+1
+        i = best_index + 1
         while i < len(self.nodes):
             node = self.nodes[i]
-            prev_node = self.nodes[i-1]
-            if node[0] < prev_node[0]+prev_node[2]:
-                shrink = prev_node[0]+prev_node[2] - node[0]
-                x,y,w = self.nodes[i]
-                self.nodes[i] = x+shrink, y, w-shrink
+            prev_node = self.nodes[i - 1]
+            if node[0] < prev_node[0] + prev_node[2]:
+                shrink = prev_node[0] + prev_node[2] - node[0]
+                x, y, w = self.nodes[i]
+                self.nodes[i] = x + shrink, y, w - shrink
                 if self.nodes[i][2] <= 0:
                     del self.nodes[i]
                     i -= 1
@@ -189,7 +192,7 @@ class _TextureAtlas:
             i += 1
 
         self.merge()
-        self.used += width*height
+        self.used += width * height
         return region
 
     def fit(self, index, width, height):
@@ -211,17 +214,17 @@ class _TextureAtlas:
         """
 
         node = self.nodes[index]
-        x,y = node[0], node[1]
+        x, y = node[0], node[1]
         width_left = width
 
-        if x+width > self.width:
+        if x + width > self.width:
             return -1
 
         i = index
         while width_left > 0:
             node = self.nodes[i]
             y = max(y, node[1])
-            if y+height > self.height:
+            if y + height > self.height:
                 return -1
             width_left -= node[2]
             i += 1
@@ -233,14 +236,43 @@ class _TextureAtlas:
         """
 
         i = 0
-        while i < len(self.nodes)-1:
+        while i < len(self.nodes) - 1:
             node = self.nodes[i]
-            next_node = self.nodes[i+1]
+            next_node = self.nodes[i + 1]
             if node[1] == next_node[1]:
-                self.nodes[i] = node[0], node[1], node[2]+next_node[2]
-                del self.nodes[i+1]
+                self.nodes[i] = node[0], node[1], node[2] + next_node[2]
+                del self.nodes[i + 1]
             else:
                 i += 1
+
+    def upload(self):
+        """Upload the local atlas data into graphics card memory
+        """
+        if not self.textureID:
+            self.textureID = gl.glGenTextures(1)
+        logging.debug("Uploading Texture Font {} to graphics card"
+                      .format(self.name))
+        gl.glBindTexture(gl.GL_TEXTURE_2D, self.textureID)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D,
+                           gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D,
+                           gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D,
+                           gl.GL_TEXTURE_MAG_FILTER, gl.GL_LINEAR)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D,
+                           gl.GL_TEXTURE_MIN_FILTER, gl.GL_LINEAR)
+        if self.format == 'alpha':
+            gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_ALPHA,
+                            self.width, self.height, 0,
+                            gl.GL_ALPHA, gl.GL_UNSIGNED_BYTE, self.data)
+        else:
+            gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_RGB,
+                            self.width, self.height, 0,
+                            gl.GL_RGB, gl.GL_UNSIGNED_BYTE, self.data)
+        logging.debug("Upload of Texture Font {} complete"
+                      .format(self.name))
+
+        gl.glBindTexture(gl.GL_TEXTURE_2D, 0)
 
 
 class GLFont:
@@ -248,7 +280,7 @@ class GLFont:
     A GLFont gathers a set of glyphs for a given font filename and size.
     """
 
-    def __init__(self, filename, size, textureSize=1024):
+    def __init__(self, filename, size, textureSize=2048):
         """
         Initialize font
 
@@ -264,19 +296,20 @@ class GLFont:
         size : float
             Font size
         """
+        self.scale = 64.0
         self.atlas = _TextureAtlas(textureSize, textureSize, format='alpha')
         self.filename = filename
         self.size = size
         self.glyphs = {}
         face = ft.Face(filename)
-        face.set_char_size(int(self.size*64))
+        face.set_char_size(int(self.size * self.scale))
         self.info = FontInfo(filename, face)
         self._dirty = False
         metrics = face.size
-        self.ascender  = metrics.ascender/64.0
-        self.descender = metrics.descender/64.0
-        self.height    = metrics.height/64.0
-        self.linegap   = self.height - self.ascender + self.descender
+        self.ascender = metrics.ascender / self.scale
+        self.descender = metrics.descender / self.scale
+        self.height = metrics.height / self.scale
+        self.linegap = self.height - self.ascender + self.descender
         self.format = self.atlas.format
 
     def __getitem__(self, charcode):
@@ -318,7 +351,7 @@ class GLFont:
             note = "{} glyphs".format(nMax)
         logging.debug("Preloading {} for Texture Font {}"
                       .format(note, self.name))
-        face = ft.Face( self.filename)
+        face = ft.Face(self.filename)
 
         chrs = (list(face.get_chars()))[:nMax]
         charcodes = [unichr(c[1]) for c in chrs]
@@ -337,7 +370,7 @@ class GLFont:
             Set of characters to be represented
         """
         if face is None:
-            face = ft.Face( self.filename )
+            face = ft.Face(self.filename)
 
         # if current glyph is same as last then maybe blank glyph?
         lastGlyph = None
@@ -353,7 +386,7 @@ class GLFont:
             flags = ft.FT_LOAD_RENDER | ft.FT_LOAD_FORCE_AUTOHINT
             flags |= ft.FT_LOAD_TARGET_LCD
 
-            face.load_char( charcode, flags )
+            face.load_char(charcode, flags)
             bitmap = face.glyph.bitmap
             # check if this looks like a blank (same as a prev glyph)
             if bitmap.buffer == lastGlyph:
@@ -362,58 +395,60 @@ class GLFont:
                 nBlanks += 1
                 continue
             lastGlyph = bitmap.buffer
-            left   = face.glyph.bitmap_left
-            top    = face.glyph.bitmap_top
-            width  = face.glyph.bitmap.width
-            rows   = face.glyph.bitmap.rows
-            pitch  = face.glyph.bitmap.pitch
+            left = face.glyph.bitmap_left
+            top = face.glyph.bitmap_top
+            width = face.glyph.bitmap.width
+            rows = face.glyph.bitmap.rows
+            pitch = face.glyph.bitmap.pitch
 
-            if self.format=='rgb':
-                x, y, w, h = self.atlas.get_region(width/5, rows+2)
+            if self.format == 'rgb':
+                x, y, w, h = self.atlas.get_region(width / 5, rows + 2)
             else:
-                x, y, w, h = self.atlas.get_region(width+2, rows+2)
+                x, y, w, h = self.atlas.get_region(width + 2, rows + 2)
 
             if x < 0:
                 msg = ("Failed to fit char into font texture ({} at size {}px)"
                        .format(face.family_name, self.size))
                 raise RuntimeError(msg)
 
-            x,y = x+1, y+1
-            w,h = w-2, h-2
+            x, y = x + 1, y + 1
+            w, h = w - 2, h - 2
 
             data = np.array(bitmap.buffer).reshape(rows, pitch)
             data = data[:h, :w]
 
             if self.format == 'rgb':
-                Z = (((data/255.0)**1.5)*255).astype(np.ubyte)
-            self.atlas.set_region((x,y,w,h), data)
+                Z = (((data / 255.0) ** 1.5) * 255).astype(np.ubyte)
+            self.atlas.set_region((x, y, w, h), data)
 
             # Build glyph
             size = w, h
             offset = left, top
-            advance = face.glyph.advance.x, face.glyph.advance.y
+            advance = (face.glyph.advance.x / self.scale,
+                       face.glyph.advance.y / self.scale)
 
-            u0 = (x + 0.0)/float(self.atlas.width)
-            v0 = (y + 0.0)/float(self.atlas.height)
-            u1 = (x + w - 0.0)/float(self.atlas.width)
-            v1 = (y + h - 0.0)/float(self.atlas.height)
+            u0 = (x + 0.0) / float(self.atlas.width)
+            v0 = (y + 0.0) / float(self.atlas.height)
+            u1 = (x + w - 0.0) / float(self.atlas.width)
+            v1 = (y + h - 0.0) / float(self.atlas.height)
             texcoords = (u0, v0, u1, v1)
             glyph = TextureGlyph(charcode, size, offset, advance, texcoords)
             self.glyphs[charcode] = glyph
 
             # Generate kerning
-            for g in self.glyphs.values():
-                kerning = face.get_kerning(g.charcode, charcode,
-                                           mode=ft.FT_KERNING_UNFITTED)
-                if kerning.x != 0:
-                    glyph.kerning[g.charcode] = kerning.x
-                kerning = face.get_kerning(charcode, g.charcode,
-                                           mode=ft.FT_KERNING_UNFITTED)
-                if kerning.x != 0:
-                    g.kerning[charcode] = kerning.x
+            # for g in self.glyphs.values():
+            #     kerning = face.get_kerning(g.charcode, charcode,
+            #                                mode=ft.FT_KERNING_UNFITTED)
+            #     if kerning.x != 0:
+            #         glyph.kerning[g.charcode] = kerning.x / self.scale
+            #
+            #     kerning = face.get_kerning(charcode, g.charcode,
+            #                                mode=ft.FT_KERNING_UNFITTED)
+            #     if kerning.x != 0:
+            #         g.kerning[charcode] = kerning.x / self.scale
 
-        logging.info("loaded {} chars with {} blanks and {} valid"
-                     .format(len(charcodes), nBlanks, len(charcodes)-nBlanks))
+        logging.info("TextBox2 loaded {} chars with {} blanks and {} valid"
+                     .format(len(charcodes), nBlanks, len(charcodes) - nBlanks))
 
     def saveToCache(self):
         """Store the current font texture as an image file.
@@ -429,35 +464,11 @@ class GLFont:
             os.path.expanduser("~"), self.name, self.size)
         im.save(fname)
 
-
     def upload(self):
         """Upload the font data into graphics card memory.
         """
-        if not self.atlas.textureID:
-            self.atlas.textureID = gl.glGenTextures(1)
-        logging.debug("Uploading Texture Font {} to graphics card"
-                     .format(self.name))
-        gl.glBindTexture( gl.GL_TEXTURE_2D, self.atlas.textureID )
-        gl.glTexParameteri( gl.GL_TEXTURE_2D,
-                            gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP )
-        gl.glTexParameteri( gl.GL_TEXTURE_2D,
-                            gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP )
-        gl.glTexParameteri( gl.GL_TEXTURE_2D,
-                            gl.GL_TEXTURE_MAG_FILTER, gl.GL_LINEAR )
-        gl.glTexParameteri( gl.GL_TEXTURE_2D,
-                            gl.GL_TEXTURE_MIN_FILTER, gl.GL_LINEAR )
-        if self.format == 'alpha':
-            gl.glTexImage2D( gl.GL_TEXTURE_2D, 0, gl.GL_ALPHA,
-                             self.atlas.width, self.atlas.height, 0,
-                             gl.GL_ALPHA, gl.GL_UNSIGNED_BYTE, self.atlas.data)
-        else:
-            gl.glTexImage2D( gl.GL_TEXTURE_2D, 0, gl.GL_RGB,
-                             self.atlas.width, self.atlas.height, 0,
-                             gl.GL_RGB, gl.GL_UNSIGNED_BYTE, self.atlas.data)
-        logging.debug("Upload of Texture Font {} complete"
-                     .format(self.name))
+        self.atlas.upload()
 
-        gl.glBindTexture(gl.GL_TEXTURE_2D, 0)
 
 class TextureGlyph:
     """
@@ -494,7 +505,6 @@ class TextureGlyph:
         self.advance = advance
         self.texcoords = texcoords
         self.kerning = {}
-
 
     def get_kerning(self, charcode):
         """ Get kerning information
@@ -778,7 +788,7 @@ class FontInfo(object):
         self.charmaps = [charmap.encoding_name for charmap in face.charmaps]
         self.num_faces = face.num_faces
         self.num_glyphs = face.num_glyphs
-        #self.size_info= [dict(width=s.width,height=s.height,
+        # self.size_info= [dict(width=s.width,height=s.height,
         #    x_ppem=s.x_ppem,y_ppem=s.y_ppem) for s in face.available_sizes]
         self.units_per_em = face.units_per_EM
         self.monospace = face.is_fixed_width
