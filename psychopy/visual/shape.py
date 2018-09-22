@@ -329,7 +329,7 @@ class BaseShapeStim(BaseVisualStim, ColorMixin, ContainerMixin):
 
         if win._haveShaders:
             _prog = self.win._progSignedFrag
-            GL.glUseProgram(_prog)
+            _prog.bind()
         # will check if it needs updating (check just once)
         vertsPix = self.verticesPix
         nVerts = vertsPix.shape[0]
