@@ -17,9 +17,7 @@ some more added:
 
 """
 import numpy as np
-import random
 import OpenGL.GL as gl
-import ctypes
 
 from ..basevisual import BaseVisualStim, ColorMixin, ContainerMixin
 from psychopy.tools.attributetools import attributeSetter
@@ -32,6 +30,7 @@ allFonts = FontManager()
 # compile global shader programs later (when we're certain a GL context exists)
 rgbShader = None
 alphaShader = None
+showWhiteSpace = True
 
 codes = {'BOLD_START': u'\uE100',
          'BOLD_END': u'\uE101',
@@ -58,6 +57,10 @@ defaultBoxWidth = {'cm': 15.0,
                    'pix': 500,
                    'pixels': 500}
 
+wordBreaks = " -\n"  # what about ",."?
+
+
+# If text is ". " we don't want to start next line with single space?
 
 class TextBox2(BaseVisualStim, ContainerMixin):
     def __init__(self, win, text, font,
@@ -68,9 +71,9 @@ class TextBox2(BaseVisualStim, ContainerMixin):
                  opacity=1.0,
                  bold=False,
                  italic=False,
+                 lineSpacing=1.0,
+                 padding=None,  # gap between box and text
                  anchor='center',
-                 alignHoriz='center',
-                 alignVert='center',
                  flipHoriz=False,
                  flipVert=False,
                  name='', autoLog=None):
@@ -89,9 +92,14 @@ class TextBox2(BaseVisualStim, ContainerMixin):
                                              units=scaleUnits, win=self.win)
         if size is None:
             size = (defaultBoxWidth[units], -1)
-        self.size = size  # the w,h of the text box (-1 means not constrained)
+        self._requestedSize = size  # (-1 in either dim means not constrained)
+        self.size = size  # but this will be updated later to actual size
         self.bold = bold
         self.italic = italic
+        self.lineSpacing = lineSpacing
+        if padding is None:
+            padding = defaultLetterHeight[units] / 2.0
+        self.padding = padding
         self.glFont = None  # will be set by the self.font attribute setter
         self.font = font
         # once font is set up we can set the shader (depends on rgb/a of font)
@@ -111,9 +119,9 @@ class TextBox2(BaseVisualStim, ContainerMixin):
         self.color = color
         self.colorSpace = colorSpace
         self.opacity = opacity
+        # used at render time
         self._indices = None
         self._colors = None
-        self.nChars = None  # len(text) can be more (if including format codes)
 
         self.flipHoriz = flipHoriz
         self.flipVert = flipVert
@@ -152,15 +160,23 @@ class TextBox2(BaseVisualStim, ContainerMixin):
         if self._anchorY is None:
             self._anchorY = 'center'
 
-
     @attributeSetter
     def text(self, text):
         self.__dict__['text'] = text
         self._layout()
 
+    @property
+    def boundingBox(self):
+        """(read only) attribute representing the bounding box of the text
+        (w,h). This differs from `width` in that the width represents the
+        width of the margins, which might differ from the width of the text
+        within them."""
+        return self.__dict__['boundingBox']
+
     def _layout(self):
         """Layout the text, calculating the vertex locations
         """
+
         text = self.text
         text = text.replace('<i>', codes['ITAL_START'])
         text = text.replace('</i>', codes['ITAL_END'])
@@ -176,19 +192,33 @@ class TextBox2(BaseVisualStim, ContainerMixin):
         self._indices = np.zeros((len(text) * 6), dtype=np.uint)
         self._colors = np.zeros((len(text) * 4, 4), dtype=np.float32)
         self._texcoords = np.zeros((len(text) * 4, 2), dtype=np.float32)
-        pen = [0, 0]
-        prev = None
+
+        # the following are used internally for layout
+        self._lineNs = np.zeros(len(text), dtype=np.int)
+        self._lineLenChars = []  #
+        self._lineWidths = []  # width in stim units of each line
+        self._charIndices = []  # NB self._indices is index of each vertex
+
+        pixelScaling = self._pixLetterHeight / self.letterHeight
+        lineHeight = font.height * self.lineSpacing
+        lineMax = (self.size[0] - self.padding) * pixelScaling
+
+        cursor = [0, 0]
         fakeItalic = 0.0
         fakeBold = 0.0
-        nChars = -1
         # for some reason glyphs too wide when using alpha channel only
         if font.atlas.format == 'alpha':
             alphaCorrection = 1 / 3.0
         else:
             alphaCorrection = 1
 
-        charsThisWord = 0
+        wordLen = 0
+        charsThisLine = 0
+        lineN = 0
         for i, charcode in enumerate(text):
+
+            printable = True  # unless we decide otherwise
+            # handle formatting codes
             if charcode in codes.values():
                 if charcode == codes['ITAL_START']:
                     fakeItalic = 0.1 * font.size
@@ -197,66 +227,112 @@ class TextBox2(BaseVisualStim, ContainerMixin):
                 elif charcode == codes['BOLD_START']:
                     fakeBold = 0.3 * font.size
                 elif charcode == codes['BOLD_END']:
-                    pen[0] -= fakeBold / 2  # we expected bigger pen move so cut
+                    cursor[
+                        0] -= fakeBold / 2  # we expected bigger cursor move so cut
                     fakeBold = 0.0
                 continue
-            nChars += 1
-            glyph = font[charcode]
+            # handle newline
             if charcode == '\n':
-                pen[1] -= font.height
-                pen[0] = 0
-                continue
-            # kerning = glyph.get_kerning(prev)
-            xBotL = pen[0] + glyph.offset[0] - fakeItalic - fakeBold / 2
-            xTopL = pen[0] + glyph.offset[0] - fakeBold / 2
-            yTop = pen[1] + glyph.offset[1]
-            xBotR = xBotL + glyph.size[0] * alphaCorrection + fakeBold
-            xTopR = xTopL + glyph.size[0] * alphaCorrection + fakeBold
-            yBot = yTop - glyph.size[1]
-            u0 = glyph.texcoords[0]
-            v0 = glyph.texcoords[1]
-            u1 = glyph.texcoords[2]
-            v1 = glyph.texcoords[3]
+                printable = False
+            # handle printable characters
+            if printable:
+                if showWhiteSpace and charcode == " ":
+                    glyph = font[u"·"]
+                else:
+                    glyph = font[charcode]
+                xBotL = cursor[0] + glyph.offset[0] - fakeItalic - fakeBold / 2
+                xTopL = cursor[0] + glyph.offset[0] - fakeBold / 2
+                yTop = cursor[1] + glyph.offset[1]
+                xBotR = xBotL + glyph.size[0] * alphaCorrection + fakeBold
+                xTopR = xTopL + glyph.size[0] * alphaCorrection + fakeBold
+                yBot = yTop - glyph.size[1]
+                u0 = glyph.texcoords[0]
+                v0 = glyph.texcoords[1]
+                u1 = glyph.texcoords[2]
+                v1 = glyph.texcoords[3]
 
-            index = i * 4
-            indices = [index, index + 1, index + 2, index, index + 2, index + 3]
-            theseVertices = [[xTopL, yTop], [xBotL, yBot],  # for this letter
-                             [xBotR, yBot], [xTopR, yTop]]
-            texcoords = [[u0, v0], [u0, v1],
-                         [u1, v1], [u1, v0]]
+                index = i * 4
+                indices = [index, index + 1, index + 2,
+                           index, index + 2, index + 3]
+                theseVertices = [[xTopL, yTop], [xBotL, yBot],
+                                 [xBotR, yBot], [xTopR, yTop]]
+                texcoords = [[u0, v0], [u0, v1],
+                             [u1, v1], [u1, v0]]
 
-            vertices[i * 4:i * 4 + 4] = theseVertices
-            self._indices[i * 6:i * 6 + 6] = indices
-            self._texcoords[i * 4:i * 4 + 4] = texcoords
-            self._colors[i * 4:i * 4 + 4] = color
-            pen[0] = pen[0] + glyph.advance[0] + fakeBold / 2  # + kerning
-            pen[1] = pen[1] + glyph.advance[1]
-            prev = charcode
+                vertices[i * 4:i * 4 + 4] = theseVertices
+                self._indices[i * 6:i * 6 + 6] = indices
+                self._texcoords[i * 4:i * 4 + 4] = texcoords
+                self._colors[i * 4:i * 4 + 4] = color
+                self._lineNs[i] = lineN
+                cursor[0] = cursor[0] + glyph.advance[0] + fakeBold / 2
+                cursor[1] = cursor[1] + glyph.advance[1]
 
-            if charcode in [" ", "-", "\n"]:
-                charsThisWord = 0
+            # are we wrapping the line?
+            if charcode == "\n":
+                lineWPix = cursor[0]
+                cursor[0] = 0
+                cursor[1] -= lineHeight
+                charsThisLine = 0
+                lineN += 1
+                self._lineLenChars.append(charsThisLine)
+                lineWidth = lineWPix / pixelScaling + self.padding * 2
+                self._lineWidths.append(lineWidth)
+            elif charcode in wordBreaks:
+                wordLen = 0
+            elif printable:
+                wordLen += 1
+                charsThisLine += 1
 
-        self.nChars = nChars
-        width = pen[0] - glyph.advance[0] + glyph.size[0] * alphaCorrection
+            # end line with auto-wrap
+            if cursor[0] >= lineMax and wordLen > 0:
+                # move the current word to next line
+                lineBreakPt = vertices[(i - wordLen + 1) * 4, 0]
+                wordWidth = cursor[0] - lineBreakPt
+                # shift all chars of the word left by wordStartX
+                vertices[(i - wordLen + 1) * 4: (i + 1) * 4, 0] -= lineBreakPt
+                vertices[(i - wordLen + 1) * 4: (i + 1) * 4, 1] -= lineHeight
+                # update line values
+                self._lineNs[i - wordLen + 1: i + 1] += 1
+                self._lineLenChars.append(charsThisLine - wordLen)
+                self._lineWidths.append(
+                    lineBreakPt / pixelScaling + self.padding * 2)
+                lineN += 1
+                # and set cursor to correct location
+                cursor[0] = wordWidth
+                cursor[1] -= lineHeight
 
+        # convert the vertices to stimulus units
+        self.vertices = vertices / pixelScaling
+
+        # thisW = cursor[0] - glyph.advance[0] + glyph.size[0] * alphaCorrection
+        # calculate final self.size and tightBox
+        if self.size[0] == -1:
+            self.size[0] = max(self._lineWidths)
+        if self.size[1] == -1:
+            self.size[1] = ((lineN+1) * lineHeight / pixelScaling
+                            + self.padding * 2)
+
+        # to start with the anchor is bottom left of *first line*
         if self._anchorY == 'top':
-            dy = -round(font.ascender)  # TODO: so far this is only for 1 line
+            dy = -font.ascender / pixelScaling - self.padding
         elif self._anchorY == 'center':
-            dy = +round(-font.height / 2 - font.descender)
+            dy = self.size[1] / 2 - (font.height / 2 - font.descender) / (
+                    pixelScaling) - self.padding
         elif self._anchorY == 'bottom':
-            dy = -round(font.descender)
+            dy = self.size[1] / 2 - font.descender / pixelScaling
         else:
-            dy = 0
+            raise ValueError('Unexpected error for _anchorY')
 
         if self._anchorX == 'right':
-            dx = -width / 1.0
+            dx = 0 - self.padding
         elif self._anchorX == 'center':
-            dx = -width / 2.0
-        else:  # left is what happens automatically
-            dx = 0
-        vertices += (round(dx), round(dy))
+            dx = - self.size[0] / 4.0
+        elif self._anchorX == 'left':
+            dx = - self.size[0] / 2.0 + self.padding
+        else:
+            raise ValueError('Unexpected error for _anchorX')
+        self.vertices += (dx, dy)
 
-        self.vertices = vertices * self.letterHeight / self._pixLetterHeight
         # if we had to add more glyphs to make possible then 
         if self.glFont._dirty:
             self.glFont.upload()
@@ -319,12 +395,6 @@ class TextBox2(BaseVisualStim, ContainerMixin):
         else:
             verts = self._verticesBase
 
-        # set size and orientation, combine with position and convert to pix:
-        if hasattr(self, 'fieldSize'):
-            # this is probably a DotStim and size is handled differently
-            verts = np.dot(verts * flip, self._rotationMatrix)
-        else:
-            verts = np.dot(verts * flip, self._rotationMatrix)
         verts = convertToPix(vertices=verts, pos=self.pos,
                              win=self.win, units=self.units)
         self.__dict__['verticesPix'] = verts
