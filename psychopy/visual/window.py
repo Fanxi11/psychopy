@@ -1439,11 +1439,11 @@ class Window(object):
         self._progFBOtoFrame = _shaders.Shader(
             _shaders.vertSimple, _shaders.fragFBOtoFrame)
         self._shaders = {}
-        self._shaders['signedColor'] = _shaders.compileProgram(
+        self._shaders['signedColor'] = _shaders.Shader(
             _shaders.vertSimple, _shaders.fragSignedColor)
-        self._shaders['signedColor_adding'] = _shaders.compileProgram(
+        self._shaders['signedColor_adding'] = _shaders.Shader(
             _shaders.vertSimple, _shaders.fragSignedColor_adding)
-        self._shaders['signedTex'] = _shaders.compileProgram(
+        self._shaders['signedTex'] = _shaders.Shader(
             _shaders.vertSimple, _shaders.fragSignedColorTex)
         self._shaders['signedTexMask'] = _shaders.Shader(
             _shaders.vertSimple, _shaders.fragSignedColorTexMask)

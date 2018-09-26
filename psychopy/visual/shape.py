@@ -329,7 +329,7 @@ class BaseShapeStim(BaseVisualStim, ColorMixin, ContainerMixin):
 
         if win._haveShaders:
             _prog = self.win._progSignedFrag
-            GL.glUseProgram(_prog)
+            _prog.bind()
         # will check if it needs updating (check just once)
         vertsPix = self.verticesPix
         nVerts = vertsPix.shape[0]
@@ -560,7 +560,7 @@ class ShapeStim(BaseShapeStim):
         # setup the shaderprogram
         if win._haveShaders:
             _prog = self.win._progSignedFrag
-            GL.glUseProgram(_prog)
+            _prog.bind()
 
         # load Null textures into multitexteureARB - or they modulate glColor
         GL.glActiveTexture(GL.GL_TEXTURE0)
