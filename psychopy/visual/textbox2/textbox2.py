@@ -24,13 +24,14 @@ from psychopy.tools.attributetools import attributeSetter
 from psychopy.tools.monitorunittools import convertToPix
 from .fontmanager import FontManager, GLFont
 from .. import shaders
+from ..rect import Rect
 
 allFonts = FontManager()
 
 # compile global shader programs later (when we're certain a GL context exists)
 rgbShader = None
 alphaShader = None
-showWhiteSpace = True
+showWhiteSpace = False
 
 codes = {'BOLD_START': u'\uE100',
          'BOLD_END': u'\uE101',
@@ -64,7 +65,7 @@ wordBreaks = " -\n"  # what about ",."?
 
 class TextBox2(BaseVisualStim, ContainerMixin):
     def __init__(self, win, text, font,
-                 pos=(0, 0), units='pix', letterHeight=12,
+                 pos=(0, 0), units='pix', letterHeight=None,
                  size=None,
                  color=(1.0, 1.0, 1.0),
                  colorSpace='rgb',
@@ -74,6 +75,8 @@ class TextBox2(BaseVisualStim, ContainerMixin):
                  lineSpacing=1.0,
                  padding=None,  # gap between box and text
                  anchor='center',
+                 fillColor=None,
+                 borderColor=None,
                  flipHoriz=False,
                  flipVert=False,
                  name='', autoLog=None):
@@ -82,14 +85,17 @@ class TextBox2(BaseVisualStim, ContainerMixin):
                                 autoLog=autoLog)
         self.win = win
         # first set params needed to create font (letter sizes etc)
-        self.letterHeight = letterHeight
+        if letterHeight is None:
+            self.letterHeight = defaultLetterHeight[units]
+        else:
+            self.letterHeight = letterHeight
         # self._pixLetterHeight helps get font size right but not final layout
         if 'deg' in units:  # treat deg, degFlat or degFlatPos the same
             scaleUnits = 'deg'  # scale units are just for font resolution
         else:
             scaleUnits = units
-        self._pixLetterHeight = convertToPix(self.letterHeight, pos=0,
-                                             units=scaleUnits, win=self.win)
+        self._pixLetterHeight = convertToPix(
+                self.letterHeight, pos=0, units=scaleUnits, win=self.win)
         if size is None:
             size = (defaultBoxWidth[units], -1)
         self._requestedSize = size  # (-1 in either dim means not constrained)
@@ -106,11 +112,11 @@ class TextBox2(BaseVisualStim, ContainerMixin):
         if self.glFont.atlas.format == 'rgb':
             global rgbShader
             self.shader = rgbShader = shaders.Shader(
-                shaders.vertSimple, shaders.fragTextBox2)
+                    shaders.vertSimple, shaders.fragTextBox2)
         else:
             global alphaShader
             self.shader = alphaShader = shaders.Shader(
-                shaders.vertSimple, shaders.fragTextBox2alpha)
+                    shaders.vertSimple, shaders.fragTextBox2alpha)
         # params about positioning
         self.anchor = anchor  # 'center', 'top_left', 'bottom-center'...
         self._needVertexUpdate = False  # this will be set True during layout
@@ -126,6 +132,11 @@ class TextBox2(BaseVisualStim, ContainerMixin):
         self.flipHoriz = flipHoriz
         self.flipVert = flipVert
         self.text = text  # setting this triggers a _layout() call so do last
+        self.box = Rect(win, pos=pos,
+                        width=self.size[0], height=self.size[1], units=units,
+                        lineColor=borderColor, fillColor=fillColor)
+        self.borderColor = borderColor
+        self.fillColor = fillColor
 
     @attributeSetter
     def font(self, fontName, italic=False, bold=False):
@@ -134,8 +145,10 @@ class TextBox2(BaseVisualStim, ContainerMixin):
             self.__dict__['font'] = fontName.name
         else:
             self.__dict__['font'] = fontName
-            self.glFont = allFonts.getFont(fontName, size=self._pixLetterHeight,
-                                           bold=self.bold, italic=self.italic)
+            self.glFont = allFonts.getFont(
+                    fontName,
+                    size=int(round(self._pixLetterHeight)),
+                    bold=self.bold, italic=self.italic)
 
     @attributeSetter
     def anchor(self, anchor):
@@ -227,8 +240,7 @@ class TextBox2(BaseVisualStim, ContainerMixin):
                 elif charcode == codes['BOLD_START']:
                     fakeBold = 0.3 * font.size
                 elif charcode == codes['BOLD_END']:
-                    cursor[
-                        0] -= fakeBold / 2  # we expected bigger cursor move so cut
+                    cursor[0] -= fakeBold / 2  # we expected bigger cursor
                     fakeBold = 0.0
                 continue
             # handle newline
@@ -295,7 +307,7 @@ class TextBox2(BaseVisualStim, ContainerMixin):
                 self._lineNs[i - wordLen + 1: i + 1] += 1
                 self._lineLenChars.append(charsThisLine - wordLen)
                 self._lineWidths.append(
-                    lineBreakPt / pixelScaling + self.padding * 2)
+                        lineBreakPt / pixelScaling + self.padding * 2)
                 lineN += 1
                 # and set cursor to correct location
                 cursor[0] = wordWidth
@@ -309,7 +321,7 @@ class TextBox2(BaseVisualStim, ContainerMixin):
         if self.size[0] == -1:
             self.size[0] = max(self._lineWidths)
         if self.size[1] == -1:
-            self.size[1] = ((lineN+1) * lineHeight / pixelScaling
+            self.size[1] = ((lineN + 1) * lineHeight / pixelScaling
                             + self.padding * 2)
 
         # to start with the anchor is bottom left of *first line*
@@ -317,7 +329,7 @@ class TextBox2(BaseVisualStim, ContainerMixin):
             dy = -font.ascender / pixelScaling - self.padding
         elif self._anchorY == 'center':
             dy = self.size[1] / 2 - (font.height / 2 - font.descender) / (
-                    pixelScaling) - self.padding
+                pixelScaling) - self.padding
         elif self._anchorY == 'bottom':
             dy = self.size[1] / 2 - font.descender / pixelScaling
         else:
@@ -342,6 +354,8 @@ class TextBox2(BaseVisualStim, ContainerMixin):
     def draw(self):
         if self._needVertexUpdate:
             self._updateVertices()
+        if self.fillColor is not None or self.borderColor is not None:
+            self.box.draw()
         gl.glPushMatrix()
         self.win.setScale('pix')
 
@@ -404,8 +418,8 @@ class TextBox2(BaseVisualStim, ContainerMixin):
             border = np.dot(self.size * self.border *
                             flip, self._rotationMatrix)
             border = convertToPix(
-                vertices=border, pos=self.pos, win=self.win,
-                units=self.units)
+                    vertices=border, pos=self.pos, win=self.win,
+                    units=self.units)
             self.__dict__['_borderPix'] = border
 
         self._needVertexUpdate = False
