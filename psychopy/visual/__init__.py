@@ -76,6 +76,7 @@ from psychopy.visual.rect import Rect
 from psychopy.visual.circle import Circle
 
 from psychopy.visual.textbox import TextBox
+from psychopy.visual.textbox2 import TextBox2
 
 # rift support 
 from psychopy.visual.rift import Rift
