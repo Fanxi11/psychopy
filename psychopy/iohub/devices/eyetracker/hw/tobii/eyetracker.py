@@ -1,8 +1,10 @@
-"""ioHub Common Eye Tracker Interface for Tobii (C) Eye Tracking System"""
 # -*- coding: utf-8 -*-
 # Part of the psychopy.iohub library.
 # Copyright (C) 2012-2016 iSolver Software Solutions
 # Distributed under the terms of the GNU General Public License (GPL).
+
+"""ioHub Common Eye Tracker Interface for Tobii (C) Eye Tracking System"""
+from __future__ import absolute_import
 
 import numpy as np
 from .....constants import EventConstants, EyeTrackerConstants
@@ -52,9 +54,9 @@ class EyeTracker(EyeTrackerDevice):
 
         try:
             if EyeTracker._isEyeX:
-                from eyex_classes import TobiiEyeXTracker
+                from .eyex_classes import TobiiEyeXTracker
             else:
-                from tobiiclasses import TobiiTracker
+                from .tobiiclasses import TobiiTracker
         except Exception:
             print2err('Error importing tobiiclasses')
             printExceptionDetailsToStdErr()
@@ -222,7 +224,7 @@ class EyeTracker(EyeTrackerDevice):
         return EyeTrackerConstants.EYETRACKER_ERROR
 
     def enableEventReporting(self, enabled=True):
-        """enableEventReporting is functionaly identical to the eye tracker
+        """enableEventReporting is functionally identical to the eye tracker
         device specific enableEventReporting method."""
 
         try:
@@ -310,7 +312,7 @@ class EyeTracker(EyeTrackerDevice):
         In general, the y or vertical component of each eyes gaze position should
         be the same value, since in typical user populations the two eyes are
         yoked vertically when they move. Therefore any difference between the
-        two eyes in the y dimention is likely due to eye tracker error.
+        two eyes in the y dimension is likely due to eye tracker error.
 
         Differences between the x, or horizontal component of the gaze position,
         indicate that the participant is being reported as looking behind or

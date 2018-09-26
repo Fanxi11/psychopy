@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, division, print_function
@@ -18,10 +18,10 @@ import os
 from pkg_resources import parse_version
 import wx
 import wx.lib.filebrowsebutton
-if parse_version(wx.__version__) < parse_version('4.0.0a1'):
-    import wx.lib.hyperlink as wxhl
-else:
-    import wx.lib.agw.hyperlink as wxhl
+try:
+    import wx.lib.agw.hyperlink as wxhl  # 4.0+
+except ImportError:
+    import wx.lib.hyperlink as wxhl # <3.0.2
 
 import psychopy
 from . import dialogs
@@ -59,7 +59,7 @@ def makeConnections(app):
 
 def getLatestVersionInfo():
     """
-    Fetch info about the latest availiable version.
+    Fetch info about the latest available version.
     Returns -1 if fails to make a connection
     """
     try:
@@ -202,7 +202,7 @@ class SuggestUpdateDialog(wx.Dialog):
     """
 
     def __init__(self, latest, runningVersion):
-        wx.Dialog.__init__(self, None, -1, title='PsychoPy2 Updates')
+        wx.Dialog.__init__(self, None, -1, title='PsychoPy3 Updates')
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # info about current version
@@ -389,7 +389,7 @@ class InstallUpdateDialog(wx.Dialog):
     def onRadioSelect(self, event=None):
         """Set the controls of the appropriate selection to disabled/enabled
         """
-        # if receive no event then just set everthing to previous state
+        # if receive no event then just set everything to previous state
         if event != None:
             self.currentSelection = event.GetEventObject()
         else:

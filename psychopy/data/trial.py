@@ -107,8 +107,9 @@ class TrialHandler(_BaseTrialHandler):
 
         :Attributes (after creation):
 
-            .data - a dictionary of numpy arrays, one for each data type
-                stored
+            .data - a dictionary (or more strictly, a `DataHandler` sub-
+                class of a dictionary) of numpy arrays, one for each data 
+                type stored
 
             .trialList - the original list of dicts, specifying the conditions
 
@@ -768,9 +769,8 @@ class TrialHandler2(_BaseTrialHandler):
 
         :Parameters:
 
-            trialList: a simple list (or flat array) of dictionaries
-                specifying conditions. This can be imported from an
-                excel / csv file using :func:`~psychopy.data.importConditions`
+            trialList: filename or a simple list (or flat array) of
+                dictionaries specifying conditions
 
             nReps: number of repeats for all conditions
 
@@ -844,7 +844,9 @@ class TrialHandler2(_BaseTrialHandler):
         # user has hopefully specified a filename
         elif isinstance(trialList, basestring) and os.path.isfile(trialList):
             # import conditions from that file
-            self.trialList, self.columns = importConditions(trialList, True)
+            self.trialList, self.columns = importConditions(
+                trialList,
+                returnFieldNames=True)
         else:
             self.trialList = trialList
             self.columns = list(trialList[0].keys())

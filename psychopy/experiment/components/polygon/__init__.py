@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, print_function
@@ -26,7 +26,7 @@ _localized = {'nVertices': _translate('Num. vertices'),
               'lineWidth': _translate('Line width'),
               'interpolate': _translate('Interpolate'),
               'size': _translate("Size [w,h]"),
-              'shape': "Shape"}
+              'shape': _translate("Shape")}
 
 
 class PolygonComponent(BaseVisualComponent):
@@ -51,6 +51,7 @@ class PolygonComponent(BaseVisualComponent):
         self.type = 'Polygon'
         self.url = "http://www.psychopy.org/builder/components/polygon.html"
         self.exp.requirePsychopyLibs(['visual'])
+        self.targets = ['PsychoPy', 'PsychoJS']
         self.order = ['shape', 'nVertices']
         self.depends = [  # allows params to turn each other off/on
             {"dependsOn": "shape",  # must be param name
@@ -205,3 +206,19 @@ class PolygonComponent(BaseVisualComponent):
             code += "interpolate=False)\n"
 
         buff.writeIndentedLines(code)
+
+    def writeInitCodeJS(self, buff):
+        code = ("{name} = new Rect ({{\n"
+        "  win: psychoJS.window, name: '{name}',\n"
+        "  units: psychoJS.window.units,\n"
+        "  width: {size}[0], height: {size}[1],\n"
+        "  ori: 0, pos: {pos},\n"
+        "  lineWidth: 1, lineColor: new util.Color({lineColor}),\n"
+        "  fillColor: new util.Color({fillColor}),\n"
+        "  opacity: 1, depth: -1.0, interpolate: true,\n"
+        "}});\n")
+        buff.writeIndentedLines(code.format(name=self.params['name'],
+                                            pos=self.params['pos'],
+                                            size=self.params['size'],
+                                            lineColor=self.params['lineColor'],
+                                            fillColor=self.params['fillColor']))

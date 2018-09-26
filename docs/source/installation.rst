@@ -7,9 +7,9 @@ Download
 
 For the easiest installation download and install the Standalone package for your system:
 
-The latest stable release (the version we recommend you install is 1.85.4, although on win32 1.85.3 is the same) and you can get that here:
+The latest stable release (the version we recommend you install is 1.90.1) and you can get that here:
 
-  * `PsychoPy 1.85.4 <https://github.com/psychopy/psychopy/releases>`_
+  * `PsychoPy 1.90.1 <https://github.com/psychopy/psychopy/releases>`_
   * Ubuntu or debian-based systems:
 
     * `sudo apt-get install psychopy`
@@ -118,14 +118,21 @@ For developers::
 Anaconda and Miniconda
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-The following should allow you to get PsychoPy working using Ana/MiniConda:
+The following should allow you to get PsychoPy working using Ana/MiniConda with Python 2.7::
 
-  conda config --add channels https://conda.binstar.org/erik
-  conda install -c erik psychopy
-  conda create -n psychopyenv psychopy
-  source activate psychopyenv
+  conda create -n psypy python=2.7
+  conda activate psypy
+  conda install numpy scipy matplotlib pandas pyopengl pillow lxml openpyxl xlrd configobj pyyaml gevent greenlet msgpack-python psutil pytables requests[security] cffi seaborn wxpython cython future pyzmq pyserial
+  conda install -c conda-forge pyglet pysoundfile python-bidi moviepy pyosf
+  pip install zmq json-tricks pyparallel sounddevice pygame pysoundcard psychopy_ext psychopy
 
-but the recipe may be out of date and `pygame` was not available in the past (now?)
+and with Python 3.5 (recommended)::
+
+  conda create -n psypy3 python=3.5
+  conda activate psypy3
+  conda install numpy scipy matplotlib pandas pyopengl pillow lxml openpyxl xlrd configobj pyyaml gevent greenlet msgpack-python psutil pytables requests[security] cffi seaborn wxpython cython pyzmq pyserial
+  conda install -c conda-forge pyglet pysoundfile python-bidi moviepy pyosf
+  pip install zmq json-tricks pyparallel sounddevice pygame pysoundcard psychopy_ext psychopy
 
 .. _macports_install:
 
@@ -173,7 +180,7 @@ Ensure you have Python 3.6 and the latest version of pip installed::
   python --version
   pip --version
 
-Next, follow instructions `here <http://www.psychopy.org/developers/repository.com>`_ to fork and fetch the latest version of the PsychoPy repository.
+Next, follow instructions :ref:`here <usingRepos>` to fork and fetch the latest version of the PsychoPy repository.
 
 From the directory where you cloned the latest PsychoPy repository (i.e., where setup.py resides), run::
 
@@ -186,4 +193,3 @@ This will install all PsychoPy dependencies to your default Python distribution 
 Alternatively, you can run the psychopyApp.py from the command line::
 
   python C:\PATH_TO_CLONED_PSYCHOPY_REPO\psychopy\app\psychopyApp
-

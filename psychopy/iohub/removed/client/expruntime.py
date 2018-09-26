@@ -3,6 +3,7 @@
 # Copyright (C) 2012-2016 iSolver Software Solutions
 # Distributed under the terms of the GNU General Public License (GPL).
 from __future__ import division, absolute_import
+from __future__ import print_function
 
 import os
 import sys
@@ -37,7 +38,7 @@ class ioHubExperimentRuntime(object):
     # Not going to correct this classes code format (pylint, pep8)
     # since it is on its way out..
     """The ioHubExperimentRuntime class brings together several aspects of the
-    ioHub Event Monitoring Framework, making it simplier to define and manage
+    ioHub Event Monitoring Framework, making it simpler to define and manage
     experiments that use multiple ioHub Device types, particularly when using
     more complicated devices such as the Eye Tracker or Analog Input Device.
 
@@ -94,7 +95,7 @@ class ioHubExperimentRuntime(object):
 
         #: The devices attribute is a short cut to the ioHubConnection
         #: instance's .devices attribute. i.e. self.devices = self.hub.devices.
-        #: A refernce to the Computer class is also added to the devices
+        #: A reference to the Computer class is also added to the devices
         #: attribute, so when using the ioHubConnection devices attribute,
         #: the ioHub Computer class can be accessed using self.devices.computer;
         #: It does not need to be imported by your script.
@@ -154,7 +155,7 @@ class ioHubExperimentRuntime(object):
 
     def run(self, *sys_argv):
         """The run method must be overwritten by your subclass of
-        ioHubExperimentRuntime, and would include the equivelent logic to what
+        ioHubExperimentRuntime, and would include the equivalent logic to what
         would be added to the main starting script in a procedural PsychoPy
         script.
 
@@ -263,7 +264,7 @@ class ioHubExperimentRuntime(object):
         passed into the method will be reflected in the data values saved to
         the ioHub DataStore.
 
-        Note that the same dict object that is passed into the method as an arguement
+        Note that the same dict object that is passed into the method as an argument
         must be returned by the method as the result.
 
         Args:
@@ -282,7 +283,7 @@ class ioHubExperimentRuntime(object):
         passed into the method will be reflected in the data values saved to
         the ioHub DataStore for the session.
 
-        Note that the same dict object that is passed into the method as an arguement
+        Note that the same dict object that is passed into the method as an argument
         must be returned by the method as the result.
 
         Args:
@@ -337,7 +338,7 @@ class ioHubExperimentRuntime(object):
         print(repr(traceback.extract_tb(exc_traceback)))
         print('*** format_tb:')
         print(repr(traceback.format_tb(exc_traceback)))
-        print('*** tb_lineno:', exc_traceback.tb_lineno)
+        print(('*** tb_lineno:', exc_traceback.tb_lineno))
 
     @staticmethod
     def mergeConfigurationFiles(
@@ -394,7 +395,7 @@ class ioHubExperimentRuntime(object):
             # was started.
             exitExperiment = self._displayExperimentSettingsDialog()
             if exitExperiment:
-                print 'User Cancelled Experiment Launch.'
+                print('User Cancelled Experiment Launch.')
                 self._close()
                 sys.exit(1)
 
@@ -404,7 +405,7 @@ class ioHubExperimentRuntime(object):
         ioHubInfo = self.configuration.get('ioHub', {})
 
         if ioHubInfo is None:
-            print 'ioHub section of configuration file could not be found. Exiting.....'
+            print('ioHub section of configuration file could not be found. Exiting.....')
             self._close()
             sys.exit(1)
         else:
@@ -455,7 +456,7 @@ class ioHubExperimentRuntime(object):
                     tempdict = self._displayExperimentSessionSettingsDialog(
                         allSessionDialogVariables, sessionVariableOrder)
                     if tempdict is None:
-                        print 'User Cancelled Experiment Launch.'
+                        print('User Cancelled Experiment Launch.')
                         self._close()
                         sys.exit(1)
 

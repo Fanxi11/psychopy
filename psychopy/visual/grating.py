@@ -6,7 +6,7 @@ in either dimension. One of the main stimuli for PsychoPy.
 """
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, division, print_function
@@ -259,7 +259,7 @@ class GratingStim(BaseVisualStim, TextureMixin, ColorMixin, ContainerMixin):
 
         Can the 'avg' or 'add'. Average (avg) places the new stimulus over the old one
         with a transparency given by its opacity. Opaque stimuli will hide other stimuli
-        transparent stimuli wont. Add performs the aritmetic sum of the new stimulus and the ones
+        transparent stimuli won't. Add performs the arithmetic sum of the new stimulus and the ones
         already present.
 
         """
@@ -295,7 +295,7 @@ class GratingStim(BaseVisualStim, TextureMixin, ColorMixin, ContainerMixin):
 
         if win is None:
             win = self.win
-        saveBlendMode=win.blendMode
+        saveBlendMode = win.blendMode
         win.setBlendMode(self.blendmode, log=False)
         self._selectWindow(win)
 

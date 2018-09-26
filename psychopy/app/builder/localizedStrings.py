@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """
@@ -77,7 +77,23 @@ _localizedDialogs = {
     'error': _translate('error'),
     # Experiment info dialog:
     'Field': _translate('Field'),
-    'Default': _translate('Default'),}
+    'Default': _translate('Default'),
+    # Mouse:
+    'any click': _translate('any click'),
+    'valid click': _translate('valid click'),
+    'mouse onset':_translate('mouse onset'),
+    'Routine': _translate('Routine'),
+    # Polygon:
+    'line': _translate('line'),
+    'triangle': _translate('triangle'),
+    'rectangle': _translate('rectangle'),
+    'cross': _translate('cross'),
+    'regular polygon...': _translate('regular polygon...'),
+    # Variable component
+    'first': _translate('first'),
+    'last': _translate('last'),
+    'all': _translate('all'),
+    'average': _translate('average')}
 
 _localized = copy.copy(_localizedBase)
 _localized.update(_localizedDialogs)

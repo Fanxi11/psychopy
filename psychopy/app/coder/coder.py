@@ -18,6 +18,9 @@ import wx
 import wx.stc
 import wx.richtext
 from wx.html import HtmlEasyPrinting
+
+import psychopy.app.pavlovia_ui.menu
+
 try:
     from wx import aui
 except Exception:
@@ -35,13 +38,14 @@ import pickle
 import py_compile
 import locale
 
-from . import psychoParser, introspect
+from . import psychoParser
 from .. import stdOutRich, dialogs
-from .. import projects
+from .. import pavlovia_ui
 from psychopy import logging
 from psychopy.localization import _translate
 from ..utils import FileDropTarget
 from psychopy.constants import PY3
+from psychopy.projects import pavlovia
 
 # advanced prefs (not set in prefs files)
 prefTestSubset = ""
@@ -480,7 +484,10 @@ class UnitTestFrame(wx.Frame):
         # "C:\Program Files\wxPython2.8 Docs and Demos\samples\hangman\hangman.py"
         tmpFilename, tmpLineNumber = evt.GetString().rsplit('", line ', 1)
         filename = tmpFilename.split('File "', 1)[1]
-        lineNumber = int(tmpLineNumber.split(',')[0])
+        try:
+            lineNumber = int(tmpLineNumber.split(',')[0])
+        except ValueError:
+            lineNumber = int(tmpLineNumber.split()[0])
         self.app.coder.gotoLine(filename, lineNumber)
 
     def onCloseTests(self, evt):
@@ -792,8 +799,8 @@ class CodeEditor(wx.stc.StyledTextCtrl):
         # calculate how much we need to increment/decrement the current lines
         incr = prevIndent - startLineIndent
         # check for a colon to signal an indent decrease
-        prevLogical = string.split(prevLine, '#')[0]
-        prevLogical = string.strip(prevLogical)
+        prevLogical = prevLine.split('#')[0]
+        prevLogical = prevLogical.strip()
         if len(prevLogical) > 0 and prevLogical[-1] == ':':
             incr = incr + 4
 
@@ -864,106 +871,107 @@ class CodeEditor(wx.stc.StyledTextCtrl):
             self.BraceBadLight(braceAtCaret)
         else:
             self.BraceHighlight(braceAtCaret, braceOpposite)
-
-        if self.coder.prefs['showSourceAsst']:
-            # check current word including .
-            if charBefore == ord('('):
-                startPos = self.WordStartPosition(caretPos - 2, True)
-                endPos = caretPos - 1
-            else:
-                startPos = self.WordStartPosition(caretPos, True)
-                endPos = self.WordEndPosition(caretPos, True)
-            # extend starPos back to beginning of class separated by .
-            while self.GetCharAt(startPos - 1) == ord('.'):
-                startPos = self.WordStartPosition(startPos - 1, True)
-            # now retrieve word
-            currWord = self.GetTextRange(startPos, endPos)
-
-            # lookfor word in dictionary
-            if currWord in self.autoCompleteDict:
-                helpText = self.autoCompleteDict[currWord]['help']
-                thisIs = self.autoCompleteDict[currWord]['is']
-                thisType = self.autoCompleteDict[currWord]['type']
-                thisAttrs = self.autoCompleteDict[currWord]['attrs']
-                if type(thisIs) == str:  # if this is a module
-                    searchFor = thisIs
-                else:
-                    searchFor = currWord
-            else:
-                helpText = None
-                thisIs = None
-                thisAttrs = None
-                thisType = None
-                searchFor = currWord
-
-            if self.prevWord != currWord:
-                # if we have a class or function then use introspect (because
-                # it retrieves args as well as __doc__)
-                if thisType is not 'instance':
-                    wd, kwArgs, helpText = introspect.getCallTip(
-                        searchFor, locals=self.locals)
-                # then pass all info to sourceAsst
-                # for an instance inclue known attrs
-                self.updateSourceAsst(
-                    currWord, thisIs, helpText, thisType, thisAttrs)
-
-                self.prevWord = currWord  # update for next time
-
-    def updateSourceAsst(self, currWord, thisIs, helpText, thisType=None,
-                         knownAttrs=None):
-            # update the source assistant window
-        sa = self.coder.sourceAsstWindow
-        assert isinstance(sa, wx.richtext.RichTextCtrl)
-        # clear the buffer
-        sa.Clear()
-
-        # add current symbol
-        sa.BeginBold()
-        sa.WriteText('Symbol: ')
-        sa.BeginTextColour('BLUE')
-        sa.WriteText(currWord + '\n')
-        sa.EndTextColour()
-        sa.EndBold()
-
-        # add expected type
-        sa.BeginBold()
-        sa.WriteText('is: ')
-        sa.EndBold()
-        if thisIs:
-            sa.WriteText(str(thisIs) + '\n')
-        else:
-            sa.WriteText('\n')
-
-        # add expected type
-        sa.BeginBold()
-        sa.WriteText('type: ')
-        sa.EndBold()
-        if thisIs:
-            sa.WriteText(str(thisType) + '\n')
-        else:
-            sa.WriteText('\n')
-
-        # add help text
-        sa.BeginBold()
-        sa.WriteText('Help:\n')
-        sa.EndBold()
-        if helpText:
-            sa.WriteText(helpText + '\n')
-        else:
-            sa.WriteText('\n')
-
-        # add attrs
-        sa.BeginBold()
-        sa.WriteText('Known methods:\n')
-        sa.EndBold()
-        if knownAttrs:
-            if len(knownAttrs) > 500:
-                sa.WriteText('\ttoo many to list (i.e. more than 500)!!\n')
-            else:
-                for thisAttr in knownAttrs:
-                    sa.WriteText('\t' + thisAttr + '\n')
-        else:
-            sa.WriteText('\n')
+    #
+    # The code to handle the Source Assistant (using introspect) was broken and removed in 1.90.0
+    #     if self.coder.prefs['showSourceAsst']:
+    #         # check current word including .
+    #         if charBefore == ord('('):
+    #             startPos = self.WordStartPosition(caretPos - 2, True)
+    #             endPos = caretPos - 1
+    #         else:
+    #             startPos = self.WordStartPosition(caretPos, True)
+    #             endPos = self.WordEndPosition(caretPos, True)
+    #         # extend starPos back to beginning of class separated by .
+    #         while self.GetCharAt(startPos - 1) == ord('.'):
+    #             startPos = self.WordStartPosition(startPos - 1, True)
+    #         # now retrieve word
+    #         currWord = self.GetTextRange(startPos, endPos)
+    #
+    #         # lookfor word in dictionary
+    #         if currWord in self.autoCompleteDict:
+    #             helpText = self.autoCompleteDict[currWord]['help']
+    #             thisIs = self.autoCompleteDict[currWord]['is']
+    #             thisType = self.autoCompleteDict[currWord]['type']
+    #             thisAttrs = self.autoCompleteDict[currWord]['attrs']
+    #             if type(thisIs) == str:  # if this is a module
+    #                 searchFor = thisIs
+    #             else:
+    #                 searchFor = currWord
+    #         else:
+    #             helpText = None
+    #             thisIs = None
+    #             thisAttrs = None
+    #             thisType = None
+    #             searchFor = currWord
+    #
+    #         if self.prevWord != currWord:
+    #             # if we have a class or function then use introspect (because
+    #             # it retrieves args as well as __doc__)
+    #             if thisType is not 'instance':
+    #                 wd, kwArgs, helpText = introspect.getCallTip(
+    #                     searchFor, locals=self.locals)
+    #             # then pass all info to sourceAsst
+    #             # for an instance inclue known attrs
+    #             self.updateSourceAsst(
+    #                 currWord, thisIs, helpText, thisType, thisAttrs)
+    #
+    #             self.prevWord = currWord  # update for next time
+    #
+    # def updateSourceAsst(self, currWord, thisIs, helpText, thisType=None,
+    #                      knownAttrs=None):
+    #         # update the source assistant window
+    #     sa = self.coder.sourceAsstWindow
+    #     assert isinstance(sa, wx.richtext.RichTextCtrl)
+    #     # clear the buffer
+    #     sa.Clear()
+    #
+    #     # add current symbol
+    #     sa.BeginBold()
+    #     sa.WriteText('Symbol: ')
+    #     sa.BeginTextColour('BLUE')
+    #     sa.WriteText(currWord + '\n')
+    #     sa.EndTextColour()
+    #     sa.EndBold()
+    #
+    #     # add expected type
+    #     sa.BeginBold()
+    #     sa.WriteText('is: ')
+    #     sa.EndBold()
+    #     if thisIs:
+    #         sa.WriteText(str(thisIs) + '\n')
+    #     else:
+    #         sa.WriteText('\n')
+    #
+    #     # add expected type
+    #     sa.BeginBold()
+    #     sa.WriteText('type: ')
+    #     sa.EndBold()
+    #     if thisIs:
+    #         sa.WriteText(str(thisType) + '\n')
+    #     else:
+    #         sa.WriteText('\n')
+    #
+    #     # add help text
+    #     sa.BeginBold()
+    #     sa.WriteText('Help:\n')
+    #     sa.EndBold()
+    #     if helpText:
+    #         sa.WriteText(helpText + '\n')
+    #     else:
+    #         sa.WriteText('\n')
+    #
+    #     # add attrs
+    #     sa.BeginBold()
+    #     sa.WriteText('Known methods:\n')
+    #     sa.EndBold()
+    #     if knownAttrs:
+    #         if len(knownAttrs) > 500:
+    #             sa.WriteText('\ttoo many to list (i.e. more than 500)!!\n')
+    #         else:
+    #             for thisAttr in knownAttrs:
+    #                 sa.WriteText('\t' + thisAttr + '\n')
+    #     else:
+    #         sa.WriteText('\n')
 
     def OnMarginClick(self, evt):
         # fold and unfold as needed
@@ -1178,6 +1186,7 @@ class CodeEditor(wx.stc.StyledTextCtrl):
         else:
             self.SetSelection(self.GetCurrentPos(), self.GetLineEndPosition(self.GetCurrentLine()))
 
+    # the Source Assistant and introspection functinos were broekn and removed frmo PsychoPy 1.90.0
     def analyseScript(self):
         # analyse the file
         buffer = io.StringIO()
@@ -1191,7 +1200,7 @@ class CodeEditor(wx.stc.StyledTextCtrl):
             successfulParse = False
         buffer.close()
 
-        # if we parsed the tokens then process them
+    #     # if we parsed the tokens then process them
         if successfulParse:
             # import the libs used by the script
             if self.coder.modulesLoaded:
@@ -1358,7 +1367,7 @@ class CodeEditor(wx.stc.StyledTextCtrl):
 class CoderFrame(wx.Frame):
 
     def __init__(self, parent, ID, title, files=(), app=None):
-        self.app = app
+        self.app = app  # type: PsychoPyApp
         self.frameType = 'coder'
         # things the user doesn't set like winsize etc
         self.appData = self.app.prefs.appData['coder']
@@ -1371,6 +1380,7 @@ class CoderFrame(wx.Frame):
         self.fileStatusLastChecked = time.time()
         self.fileStatusCheckInterval = 5 * 60  # sec
         self.showingReloadDialog = False
+        self.btnHandles = {}  # stores toolbar buttons so they can be altered
 
         # we didn't have the key or the win was minimized/invalid
         if self.appData['winH'] == 0 or self.appData['winW'] == 0:
@@ -1488,9 +1498,11 @@ class CoderFrame(wx.Frame):
             self, style=_style,
             font=self.prefs['outputFont'],
             fontSize=self.prefs['outputFontSize'])
-        self.outputWindow.write(_translate('Welcome to PsychoPy2!') + '\n')
+        self.outputWindow.write(_translate('Welcome to PsychoPy3!') + '\n')
         self.outputWindow.write("v%s\n" % self.app.version)
         self.shelf.AddPage(self.outputWindow, _translate('Output'))
+        if self.app._appLoaded:
+            self.setOutputWindow()
 
         if haveCode:
             useDefaultShell = True
@@ -1813,10 +1825,12 @@ class CoderFrame(wx.Frame):
         folders = glob.glob(os.path.join(self.paths['demos'], 'coder', '*'))
         for folder in folders:
             # if it isn't a folder then skip it
-            if not os.path.isdir(folder):
+            if (not os.path.isdir(folder)):
                 continue
             # otherwise create a submenu
             folderDisplayName = os.path.split(folder)[-1]
+            if folderDisplayName.startswith('_'):
+                continue  # don't include private folders
             if folderDisplayName in _localized:
                 folderDisplayName = _localized[folderDisplayName]
             submenu = wx.Menu()
@@ -1835,7 +1849,7 @@ class CoderFrame(wx.Frame):
                     # file is just "run" so get shortname from directory name
                     # instead
                     shortname = thisFile.split(os.path.sep)[-2]
-                if shortname.startswith('_'):
+                elif shortname.startswith('_'):
                     continue  # remove any 'private' files
                 item = submenu.Append(wx.ID_ANY, shortname)
                 thisID = item.GetId()
@@ -1854,8 +1868,8 @@ class CoderFrame(wx.Frame):
             self.Bind(wx.EVT_MENU, self.loadDemo, id=thisID)
 
         # ---_projects---#000000#FFFFFF---------------------------------------
-        self.projectsMenu = projects.ProjectsMenu(parent=self)
-        menuBar.Append(self.projectsMenu, _translate("P&rojects"))
+        self.pavloviaMenu = psychopy.app.pavlovia_ui.menu.PavloviaMenu(parent=self)
+        menuBar.Append(self.pavloviaMenu, _translate("Pavlovia.org"))
 
         # ---_help---#000000#FFFFFF-------------------------------------------
         self.helpMenu = wx.Menu()
@@ -1896,7 +1910,7 @@ class CoderFrame(wx.Frame):
                 toolbarSize = 16
         else:
             # mac: 16 either doesn't work, or looks really bad with wx3
-            toolbarSize = 128
+            toolbarSize = 32
 
         self.toolbar.SetToolBitmapSize((toolbarSize, toolbarSize))
         rc = self.paths['resources']
@@ -1953,7 +1967,7 @@ class CoderFrame(wx.Frame):
                          key.replace('Ctrl+', ctrlKey),
                          _translate("Redo last action")).GetId()
         tb.Bind(wx.EVT_TOOL, self.redo, id=self.IDs.cdrBtRedo)
-        tb.AddSeparator()
+
         tb.AddSeparator()
         item = tb.AddSimpleTool(wx.ID_ANY, preferencesBmp,
                          _translate("Preferences"),
@@ -1967,7 +1981,7 @@ class CoderFrame(wx.Frame):
                          _translate("Color Picker -> clipboard"),
                          _translate("Color Picker -> clipboard"))
         tb.Bind(wx.EVT_TOOL, self.app.colorPicker, id=item.GetId())
-        self.toolbar.AddSeparator()
+
         self.toolbar.AddSeparator()
         key = _translate("Run [%s]") % self.app.keys['runScript']
         self.IDs.cdrBtnRun = self.toolbar.AddSimpleTool(wx.ID_ANY, runBmp,
@@ -1980,6 +1994,12 @@ class CoderFrame(wx.Frame):
                                    _translate("Stop current script")).GetId()
         tb.Bind(wx.EVT_TOOL, self.stopFile, id=self.IDs.cdrBtnStop)
         tb.EnableTool(self.IDs.cdrBtnStop, False)
+
+        self.toolbar.AddSeparator()
+        pavButtons = pavlovia_ui.toolbar.PavloviaButtons(self, toolbar=tb, tbSize=size)
+        pavButtons.addPavloviaTools(buttons=['pavloviaSync', 'pavloviaSearch', 'pavloviaUser', ])
+        self.btnHandles.update(pavButtons.btnHandles)
+
         tb.Realize()
 
     def onIdle(self, event):
@@ -2642,7 +2662,7 @@ class CoderFrame(wx.Frame):
 
         # check syntax by compiling - errors printed (not raised as error)
         try:
-            if type(fullPath) == bytes:
+            if not PY3 or type(fullPath) == bytes:
                 # py_compile.compile doesn't accept Unicode filename.
                 py_compile.compile(fullPath.encode(
                     sys.getfilesystemencoding()), doraise=False)
@@ -2881,14 +2901,30 @@ class CoderFrame(wx.Frame):
         # "C:\Program Files\wxPython2.8 Docs and Demos\samples\hangman\hangman.py"
         tmpFilename, tmpLineNumber = evt.GetString().rsplit('", line ', 1)
         filename = tmpFilename.split('File "', 1)[1]
-        lineNumber = int(tmpLineNumber.split(',')[0])
+        try:
+            lineNumber = int(tmpLineNumber.split(',')[0])
+        except ValueError:
+            lineNumber = int(tmpLineNumber.split()[0])
         self.gotoLine(filename, lineNumber)
 
     def onUnitTests(self, evt=None):
-        """Show the unit tests frame
-        """
+        """Show the unit tests frame"""
         if self.unitTestFrame:
             self.unitTestFrame.Raise()
         else:
             self.unitTestFrame = UnitTestFrame(app=self.app)
         # UnitTestFrame.Show()
+
+    def onPavloviaSync(self, evt=None):
+        """Push changes to project repo, or create new proj if proj is None"""
+        self.project = pavlovia.getProject(self.currentDoc.filename)
+        self.fileSave(self.currentDoc.filename)  # Must save on sync else changes not pushed
+        pavlovia_ui.syncProject(parent=self, project=self.project)
+
+    def onPavloviaRun(self, evt=None):
+        # TODO: Allow user to run project from coder
+        pass
+
+    def setPavloviaUser(self, user):
+        # TODO: update user icon on button to user avatar
+        pass

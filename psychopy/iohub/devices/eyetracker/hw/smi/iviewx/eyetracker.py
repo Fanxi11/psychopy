@@ -3,6 +3,7 @@
  # Copyright (C) 2012-2016 iSolver Software Solutions
  # Distributed under the terms of the GNU General Public License (GPL).
 from __future__ import division
+from __future__ import absolute_import
 
 import sys
 import copy
@@ -15,7 +16,7 @@ from .... import EyeTrackerDevice
 from ....eye_events import *
 from ......errors import print2err, printExceptionDetailsToStdErr
 
-import pyViewX
+from . import pyViewX
 from ctypes import byref, c_longlong, c_int, c_void_p, POINTER
 
 import gevent
@@ -396,8 +397,8 @@ class EyeTracker(EyeTrackerDevice):
         starting_state values:
 
             #. DEFAULT_SETUP_PROCEDURE: This (default) mode starts by showing a dialog with the various options available during user setup.
-            #. CALIBRATION_STATE: The eye tracker will immediately preform a calibration and then return to the experiment script.
-            #. VALIDATION_STATE: The eye tracker will immediately preform a validation and then return to the experiment script. The return result is a dict containing the validation results.
+            #. CALIBRATION_STATE: The eye tracker will immediately perform a calibration and then return to the experiment script.
+            #. VALIDATION_STATE: The eye tracker will immediately perform a validation and then return to the experiment script. The return result is a dict containing the validation results.
             #. TRACKER_FEEDBACK_STATE: The eye tracker will display the eye image window and tracker graphics if either has been enabled in the device config, and then return to the experiment script.
 
         """
@@ -803,7 +804,7 @@ class EyeTracker(EyeTrackerDevice):
 
     def enableEventReporting(self, enabled=True):
         """enableEventReporting is the device type independent method that is
-        equivelent to the EyeTracker specific setRecordingState method."""
+        equivalent to the EyeTracker specific setRecordingState method."""
         try:
             result2 = self.setRecordingState(enabled)
             EyeTrackerDevice.enableEventReporting(self, enabled)

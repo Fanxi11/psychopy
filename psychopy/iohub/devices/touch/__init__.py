@@ -2,10 +2,12 @@
 # Part of the psychopy.iohub library.
 # Copyright (C) 2012-2016 iSolver Software Solutions
 # Distributed under the terms of the GNU General Public License (GPL).
-import hw
+from __future__ import absolute_import
+
+from . import hw
 from ...constants import EventConstants, DeviceConstants
 from .. import Device
-import numpy as N
+import numpy as np
 from ...errors import print2err, printExceptionDetailsToStdErr
 
 
@@ -18,7 +20,7 @@ class TouchDevice(Device):
     positional data is returned using the OS desktop pixel bounds for the given
     display.
 
-    Touch Events are generated independantly of other device events, including
+    Touch Events are generated independently of other device events, including
     a mouse device. Therefore touch data can be used in parallel to mouse data.
 
     """
@@ -157,13 +159,13 @@ class TouchEvent(DeviceEvent):
 
     _newDataTypes = [
         # gives the display index that the mouse was over for the event.
-        ('display_id', N.uint8),
+        ('display_id', np.uint8),
         # x position of the position when the event occurred
-        ('x_position', N.float32),
+        ('x_position', np.float32),
         # y position of the position when the event occurred
-        ('y_position', N.float32),
+        ('y_position', np.float32),
         # (not supported on all Elo Models)                                                  # level of touch pressure being applied when the event occurred
-        ('pressure', N.uint8)
+        ('pressure', np.uint8)
     ]
 
     __slots__ = [e[0] for e in _newDataTypes]

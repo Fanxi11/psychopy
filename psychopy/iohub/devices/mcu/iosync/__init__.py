@@ -20,7 +20,7 @@ Timing
 -------
 
 - 48 bit MCU usec timer, so MCU clock rolls every 8.9 years.
-- Uses Cristian’s Algorithm (http://en.wikipedia.org/wiki/Cristian’s_algorithm)
+- Uses Cristian's Algorithm (http://en.wikipedia.org/wiki/Cristian's_algorithm)
   to convert MCU times to ioHub times, correcting for offset and drift between
   the time bases.
 
@@ -156,7 +156,7 @@ class MCU(Device):
 
 
         Args:
-            enabled (bool):  True (default) == Start to report device events to the ioHub Process. False == Stop Reporting Events to the ioHub Process. Most Device types automatically start sending events to the ioHUb Process, however some devices like the EyeTracker and AnlogInput device's do not. The setting to control this behavour is 'auto_report_events'
+            enabled (bool):  True (default) == Start to report device events to the ioHub Process. False == Stop Reporting Events to the ioHub Process. Most Device types automatically start sending events to the ioHUb Process, however some devices like the EyeTracker and AnlogInput device's do not. The setting to control this behavior is 'auto_report_events'
 
         Returns:
             bool: The current reporting state.

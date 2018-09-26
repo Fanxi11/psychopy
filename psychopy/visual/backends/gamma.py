@@ -2,11 +2,10 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 # set the gamma LUT using platform-specific hardware calls
-# this currently requires a pyglet window (to identify the current scr/display)
 
 from __future__ import absolute_import, division, print_function
 
@@ -17,7 +16,6 @@ import sys
 import platform
 import ctypes
 import ctypes.util
-import pyglet
 from psychopy import logging
 import os
 
@@ -41,7 +39,14 @@ elif sys.platform.startswith('linux'):
 _TravisTesting = os.environ.get('TRAVIS') == 'true'  # in Travis-CI testing
 
 
-def setGamma(screenID=None, newGamma=1.0, rampType=None, xDisplay=None):
+def setGamma(
+    screenID=None,
+    newGamma=1.0,
+    rampType=None,
+    rampSize=None,
+    driver=None,
+    xDisplay=None
+):
     # make sure gamma is 3x1 array
     if type(newGamma) in [float, int]:
         newGamma = numpy.tile(newGamma, [3, 1])
@@ -51,8 +56,10 @@ def setGamma(screenID=None, newGamma=1.0, rampType=None, xDisplay=None):
     elif type(newGamma) is numpy.ndarray:
         newGamma.shape = [3, 1]
     # create LUT from gamma values
-    newLUT = numpy.tile(createLinearRamp(
-        screenID, rampType, xDisplay), (3, 1))  # linear ramp
+    newLUT = numpy.tile(
+        createLinearRamp(rampType=rampType, rampSize=rampSize, driver=driver),
+        (3, 1)
+    )
     if numpy.all(newGamma == 1.0) == False:
         # correctly handles 1 or 3x1 gamma vals
         newLUT = newLUT**(1.0/numpy.array(newGamma))
@@ -61,8 +68,7 @@ def setGamma(screenID=None, newGamma=1.0, rampType=None, xDisplay=None):
 
 def setGammaRamp(screenID, newRamp, nAttempts=3, xDisplay=None):
     """Sets the hardware look-up table, using platform-specific functions.
-    For use with pyglet windows only (pygame has its own routines for this).
-    Ramp should be provided as 3x256 or 3x1024 array in range 0:1.0
+    Ramp should be provided as 3xN array in range 0:1.0
 
     On windows the first attempt to set the ramp doesn't always work. The
     parameter nAttemps allows the user to determine how many attempts should
@@ -74,12 +80,12 @@ def setGammaRamp(screenID, newRamp, nAttempts=3, xDisplay=None):
     if newRamp.shape[0] != 3 and newRamp.shape[1] == 3:
         newRamp = numpy.ascontiguousarray(newRamp.transpose())
     if sys.platform == 'win32':
-        newRamp = (255.0 * newRamp).astype(numpy.uint16)
+        newRamp = (numpy.around(255.0 * newRamp)).astype(numpy.uint16)
         # necessary, according to pyglet post from Martin Spacek
         newRamp.byteswap(True)
         for n in range(nAttempts):
             success = windll.gdi32.SetDeviceGammaRamp(
-                0xFFFFFFFF & screenID, newRamp.ctypes)  # FB 504
+                screenID, newRamp.ctypes)  # FB 504
             if success:
                 break
         assert success, 'SetDeviceGammaRamp failed'
@@ -94,7 +100,7 @@ def setGammaRamp(screenID, newRamp, nAttempts=3, xDisplay=None):
         assert not error, 'CGSetDisplayTransferByTable failed'
 
     if sys.platform.startswith('linux') and not _TravisTesting:
-        newRamp = (65535 * newRamp).astype(numpy.uint16)
+        newRamp = (numpy.around(65535 * newRamp)).astype(numpy.uint16)
         success = xf86vm.XF86VidModeSetGammaRamp(
             xDisplay, screenID, LUTlength,
             newRamp[0, :].ctypes,
@@ -117,10 +123,11 @@ def getGammaRamp(screenID, xDisplay=None):
         # init R, G, and B ramps
         origramps = numpy.empty((3, rampSize), dtype=numpy.uint16)
         success = windll.gdi32.GetDeviceGammaRamp(
-            0xFFFFFFFF & screenID, origramps.ctypes)  # FB 504
+            screenID, origramps.ctypes)  # FB 504
         if not success:
             raise AssertionError('GetDeviceGammaRamp failed')
-        origramps = origramps/65535.0  # rescale to 0:1
+        origramps.byteswap(True)  # back to 0:255
+        origramps = origramps/255.0  # rescale to 0:1
 
     if sys.platform == 'darwin':
         # init R, G, and B ramps
@@ -153,7 +160,7 @@ def getGammaRamp(screenID, xDisplay=None):
     return origramps
 
 
-def createLinearRamp(screenID, rampType=None, xDisplay=None):
+def createLinearRamp(rampType=None, rampSize=256, driver=None):
     """Generate the Nx3 values for a linear gamma ramp on the current platform.
     This uses heuristics about known graphics cards to guess the 'rampType' if
     none is explicitly given.
@@ -188,42 +195,54 @@ def createLinearRamp(screenID, rampType=None, xDisplay=None):
     def _versionTuple(v):
         # for proper sorting: _versionTuple('10.8') < _versionTuple('10.10')
         return tuple(map(int, v.split('.')))
+
     if rampType is None:
+
         # try to determine rampType from heuristics including sys info
-        driver = pyglet.gl.gl_info.get_renderer()
+
         osxVer = platform.mac_ver()[0]  # '' on non-Mac
 
-        # try to deduce ramp type
+        # OSX
         if osxVer:
             osxVerTuple = _versionTuple(osxVer)
-            if 'NVIDIA' in driver:
-                # leopard nVidia cards don't finish at 1.0!
-                if _versionTuple("10.5") < osxVerTuple < _versionTuple("10.6"):
-                    rampType = 2
-                # snow leopard cards are plain crazy!
-                elif _versionTuple("10.6") < osxVerTuple:
-                    rampType = 3
-                else:
+
+            # driver provided
+            if driver is not None:
+
+                # nvidia
+                if 'NVIDIA' in driver:
+                    # leopard nVidia cards don't finish at 1.0!
+                    if _versionTuple("10.5") < osxVerTuple < _versionTuple("10.6"):
+                        rampType = 2
+                    # snow leopard cards are plain crazy!
+                    elif _versionTuple("10.6") < osxVerTuple:
+                        rampType = 3
+                    else:
+                        rampType = 1
+
+                # non-nvidia
+                else:  # is ATI or unknown manufacturer, default to (1:256)/256
+                    # this is certainly correct for radeon2600 on 10.5.8 and
+                    # radeonX1600 on 10.4.9
                     rampType = 1
-            else:  # is ATI or unkown manufacturer, default to (1:256)/256
+
+            # no driver info given
+            else:  # is ATI or unknown manufacturer, default to (1:256)/256
                 # this is certainly correct for radeon2600 on 10.5.8 and
                 # radeonX1600 on 10.4.9
                 rampType = 1
+
+        # win32 or linux
         else:  # for win32 and linux this is sensible, not clear about Vista and Windows7
             rampType = 0
-
-    rampSize = getGammaRampSize(screenID, xDisplay)
 
     if rampType == 0:
         ramp = numpy.linspace(0.0, 1.0, num=rampSize)
     elif rampType == 1:
-        assert rampSize == 256
         ramp = numpy.linspace(1/256.0, 1.0, num=256)
     elif rampType == 2:
-        assert rampSize == 1024
         ramp = numpy.linspace(0, 1023.0/1024, num=1024)
     elif rampType == 3:
-        assert rampSize == 1024
         ramp = numpy.linspace(0, 1023.0/1024, num=1024)
         ramp[512:] = ramp[512:] - 1/256.0
     logging.info('Using gamma ramp type: %i' % rampType)
@@ -264,6 +283,13 @@ def getGammaRampSize(screenID, xDisplay=None):
         rampSize = 256
 
     if rampSize == 0:
-        raise RuntimeError("Gamma ramp size is reported as 0.")
+
+        logging.warn(
+            "The size of the gamma ramp was reported as 0. This can " +
+            "mean that gamma settings have no effect. Proceeding with " +
+            "a default gamma ramp size."
+        )
+
+        rampSize = 256
 
     return rampSize

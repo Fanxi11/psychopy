@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, print_function
@@ -201,7 +201,7 @@ class EnvGratingComponent(BaseVisualComponent):
             unitsStr = "units=%(units)s, " % self.params
         #buff.writeIndented("from psychopy.visual.secondorder import EnvelopeGrating\n")
 
-        # replaces variable params with defaults and sets sample updateing flag
+        # replaces variable params with defaults and sets sample updating flag
         inits = getInitVals(self.params)
 
         code = ("%s = visual.EnvelopeGrating(\n" % inits['name'] +

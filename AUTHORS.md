@@ -12,17 +12,20 @@ PsychoPy:
 * Alex Forrence
 * Alex O. Holcombe
 * Andrea Grant
-* Andy Schofield
+* Andrew Schofield
 * ArgetlahmSource
+* Ari Kahn
 * Ariel Rokem
 * Arman Farhangi
 * Austin F. Frank
 * Axel Kohler
 * Ayse Ilkay Isik
+* Bas van Schaik
 * Benedikt Janus
 * Boaz Mohar
 * Brian Lau
 * Cameron Riddell
+* Carlos Correa
 * Cezary Biele
 * Chris Markiewicz
 * Christopher J. Bailey
@@ -35,6 +38,8 @@ PsychoPy:
 * Daniel McCloy
 * Daniel Riggs
 * Daniel Schreij
+* David Bridges
+* David Watson
 * Detlef Gausepohl
 * Eric Larson
 * Erik Kastman
@@ -46,9 +51,12 @@ PsychoPy:
 * Frank Papenmeier
 * Gary Lupyan
 * Gavin Cooper
+* Gerges Dib
 * Henrik Singmann
 * Hiroyuki Sogo
 * Horea Christian
+* Hrvoje Stojic
+* Ian Eisenberg
 * Ian Hussey
 * Jakub Kaczmarzyk
 * James McMurray
@@ -65,7 +73,7 @@ PsychoPy:
 * Jon Stutters
 * Jonas Kubilius
 * Jonas Lindeløv
-* Jonathan Kominsky
+* Jonathan F. Kominsky
 * Jonathan Peirce
 * Joseph Glavan
 * Josh Doe
@@ -73,18 +81,23 @@ PsychoPy:
 * Kristen Faulkner
 * Kyle Morrissey
 * Larigaldie Nathanaël
+* Lynton Graetz
+* Malte Persike
 * Manuel Ebert
 * Marian Dowgialo
 * Marius Mather
 * Mark Hymers
 * Martha Robinson
 * Matthew Cutone
+* Matthew D. Cutone
+* Matthias Geier
 * Michael MacAskill
 * Michael Notter
 * Michał Oszczak
 * Mikolaj Magnuski
 * Nate Vack
 * Nathan Nichols
+* Noah Silbert
 * Nwokedi C. Idika
 * Oliver Clark
 * Pablo Prietz
@@ -94,22 +107,28 @@ PsychoPy:
 * Piotr Iwaniuk
 * Ram Vibhakar Suthagar
 * Rebecca Sharman
+* Richard C. Gerkin
 * Richard Höchenberger
 * Robin Schubert
+* Ronald Phlypo Amate
+* Saizo Aoyagi
 * Sebastiaan Mathot
 * Sol Simpson
 * Stefan Repplinger
 * Suddha Sourav
 * Thomas Emmerling
 * Thomas Scope
+* Tim Williams
 * Todd Jennings
+* Tom Wallis
 * Tristan Stenner
 * Wilbert van Ham
 * William Högman
 * Yaroslav Halchenko
+* Yu-Han Luo
 * Zhili Zheng
 
 ---
 *This list was auto-generated via `gen_authors.py`. Do not edit manually.*
 
-*Last updated on November 05, 2017 (UTC).*
+*Last updated on August 19, 2018 (UTC).*

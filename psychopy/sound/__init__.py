@@ -44,7 +44,7 @@ preferable.
 """
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, division, print_function
@@ -74,6 +74,7 @@ for thisLibName in prefs.general['audioLib']:
             from . import backend_pyo as backend
             Sound = backend.SoundPyo
             pyoSndServer = backend.pyoSndServer
+            audioDriver = backend.audioDriver
         elif thisLibName == 'sounddevice':
             from . import backend_sounddevice as backend
             Sound = backend.SoundDeviceSound

@@ -23,7 +23,7 @@ import sys, os, psychopy
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.autosummary', 'sphinx.ext.todo', 'sphinx.ext.coverage',
-    'sphinx.ext.imgmath']
+    'sphinx.ext.imgmath', 'sphinx.ext.napoleon']
 autoclass_content='both'
 
 # Add any paths that contain templates here, relative to this directory.
@@ -40,14 +40,14 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'PsychoPy'
-copyright = u'2015, Jonathan Peirce'
+copyright = u'2018, Jonathan Peirce'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
 # The short X.Y version.
-version = psychopy.__version__[:-3]
+version = os.path.splitext(psychopy.__version__)[0]
 # The full version, including alpha/beta/rc tags.
 release = psychopy.__version__
 
@@ -86,7 +86,12 @@ add_module_names = True
 pygments_style = 'sphinx'
 
 # A list of ignored prefixes for module index sorting.
-#modindex_common_prefix = []
+#modindex_common_prefix =
+
+# NumPy-style doc settings.
+napoleon_numpy_docstring = True
+napoleon_include_private_with_doc = True
+napoleon_include_special_with_doc = False
 
 
 # -- Options for HTML output ---------------------------------------------------

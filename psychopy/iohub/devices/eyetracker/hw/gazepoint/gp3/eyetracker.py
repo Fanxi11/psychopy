@@ -1,4 +1,3 @@
-from __future__ import division
 # -*- coding: utf-8 -*-
 # Part of the psychopy.iohub library.
 # Copyright (C) 2012-2016 iSolver Software Solutions
@@ -6,6 +5,7 @@ from __future__ import division
 # .. fileauthor:: Martin Guest
 # .. fileauthor:: Sol Simpson
 
+from __future__ import division
 from ......errors import print2err, printExceptionDetailsToStdErr
 from ......constants import EventConstants, EyeTrackerConstants
 from ..... import Computer, Device
@@ -535,7 +535,7 @@ class EyeTracker(EyeTrackerDevice):
         
     def _createStartFixEvt(self, m, logged_time, tracker_time):
         # Create start fixation evt based on m
-        # GP3 does not craete seperate left and right eye fix evts, so we
+        # GP3 does not craete separate left and right eye fix evts, so we
         # create a left and right fix evt each time.
         gaze = m.get('FPOGX', ET_UNDEFINED), m.get('FPOGY', ET_UNDEFINED)
 

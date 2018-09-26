@@ -5,7 +5,7 @@
 """
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, print_function
@@ -97,7 +97,7 @@ class Aperture(MinimalStim, ContainerMixin):
             self.units = win.units
 
         # set vertices using shape, or default to a circle with nVerts edges
-        if hasattr(shape, 'lower'):
+        if hasattr(shape, 'lower') and not os.path.isfile(shape):
             shape = shape.lower()
         if shape is None or shape == 'circle':
             # NB: pentagon etc point upwards by setting x,y to be y,x

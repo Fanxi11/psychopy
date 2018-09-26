@@ -17,14 +17,14 @@ import numpy as np
 import pandas as pd
 
 from collections import OrderedDict
-from distutils.version import StrictVersion
+from pkg_resources import parse_version
 
 from psychopy import logging
 from psychopy.constants import PY3
 
 try:
     import openpyxl
-    if StrictVersion(openpyxl.__version__) >= StrictVersion('2.4.0'):
+    if parse_version(openpyxl.__version__) >= parse_version('2.4.0'):
         # openpyxl moved get_column_letter to utils.cell
         from openpyxl.utils.cell import get_column_letter
     else:
@@ -237,7 +237,7 @@ def importConditions(fileName, returnFieldNames=False, selection=""):
         if trialsArr.shape == ():
             # convert 0-D to 1-D with one element:
             trialsArr = trialsArr[np.newaxis]
-        fieldNames = trialsArr.dtype.names
+        fieldNames = list(trialsArr.dtype.names)
         _assertValidVarNames(fieldNames, fileName)
 
         # convert the record array into a list of dicts
@@ -268,11 +268,17 @@ def importConditions(fileName, returnFieldNames=False, selection=""):
             # use pandas reader, which can handle commas in fields, etc
             trialsArr = pd.read_csv(fileUniv, encoding='utf-8')
             logging.debug(u"Read csv file with pandas: {}".format(fileName))
+            unnamed = trialsArr.columns.to_series().str.contains('^Unnamed: ')
+            trialsArr = trialsArr.loc[:, ~unnamed]  # clear unnamed cols
+            logging.debug(u"Clearing unnamed columns from {}".format(fileName))
             trialList, fieldNames = pandasToDictList(trialsArr)
 
     elif fileName.endswith(('.xlsx','.xls')) and haveXlrd:
         trialsArr = pd.read_excel(fileName)
         logging.debug(u"Read excel file with pandas: {}".format(fileName))
+        unnamed = trialsArr.columns.to_series().str.contains('^Unnamed: ')
+        trialsArr = trialsArr.loc[:, ~unnamed]  # clear unnamed cols
+        logging.debug(u"Clearing unnamed columns from {}".format(fileName))
         trialList, fieldNames = pandasToDictList(trialsArr)
 
     elif fileName.endswith('.xlsx'):
@@ -281,7 +287,7 @@ def importConditions(fileName, returnFieldNames=False, selection=""):
                               'files, but neither was found.')
 
         # data_only was added in 1.8
-        if StrictVersion(openpyxl.__version__) < StrictVersion('1.8'):
+        if parse_version(openpyxl.__version__) < parse_version('1.8'):
             wb = load_workbook(filename=fileName)
         else:
             wb = load_workbook(filename=fileName, data_only=True)

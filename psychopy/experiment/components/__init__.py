@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """Extensible set of components for the PsychoPy Builder view
@@ -94,7 +94,7 @@ def getComponents(folder=None, fetchIcons=True):
     """
     if folder is None:
         pth = folder = dirname(__file__)
-        pkg = 'psychopy.app.builder.components'
+        pkg = 'psychopy.experiment.components'
     else:
         # default shared location is often not actually a folder
         if not os.path.isdir(folder):
@@ -140,12 +140,15 @@ def getComponents(folder=None, fetchIcons=True):
 
         # importlib.import_module eases 2.7 -> 3.x migration
         if cmpfile.endswith('.py'):
-            explicit_rel_path = 'psychopy.experiment.components.' + cmpfile[:-3]
+            explicit_rel_path = pkg + '.' + cmpfile[:-3]
         else:
-            explicit_rel_path = 'psychopy.experiment.components.' + cmpfile
-        module = import_module(explicit_rel_path, package=pkg)
+            explicit_rel_path = pkg + '.' + cmpfile
+        try:
+            module = import_module(explicit_rel_path, package=pkg)
+        except ImportError:
+            continue  # not a valid module (no __init__.py?)
         # check for orphaned pyc files (__file__ is not a .py file)
-        if module.__file__.endswith('.pyc'):
+        if hasattr(module, '__file__') and module.__file__.endswith('.pyc'):
             if not os.path.isfile(module.__file__[:-1]):
                 continue  # looks like an orphaned pyc file
         # give a default category
@@ -189,9 +192,9 @@ def getInitVals(params, target="PsychoPy"):
                 inits[name].val = inits[name].val.replace("(", "[", 1)
                 inits[name].val = inits[name].val[::-1].replace(")", "]", 1)[::-1]  # replace from right
             # filenames (e.g. for image) need to be loaded from resources
-            if name in ["image", "mask", "sound"]:
+            if name in ["sound"]:
                 val = str(inits[name].val)
-                if val != "None":
+                if val not in [None, 'None', 'none', '']:
                     inits[name].val = ("psychoJS.resourceManager.getResource({})"
                                        .format(inits[name]))
                     inits[name].valType = 'code'
@@ -212,8 +215,11 @@ def getInitVals(params, target="PsychoPy"):
         elif name in ['pos', 'fieldPos']:
             inits[name].val = '[0,0]'
             inits[name].valType = 'code'
+        elif name is 'color':
+            inits[name].val = 'white'
+            inits[name].valType = 'str'
         elif name in ['ori', 'sf', 'size', 'height', 'letterHeight',
-                      'color', 'lineColor', 'fillColor',
+                      'lineColor', 'fillColor',
                       'phase', 'opacity',
                       'volume',  # sounds
                       'coherence', 'nDots', 'fieldSize', 'dotSize', 'dotLife',

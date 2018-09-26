@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, division, print_function
@@ -92,7 +92,7 @@ class HammingWindow(object):
             #  - block starts before win
             #  - start/end during win
             #  - start during but end after win
-            block = numpy.ones(blockSize)
+            block = numpy.ones(blockSize)  # the initial flat part
             blockStartII = max(self.finalWinStart-startSample,
                          0)  # if block start inside window
             blockEndII = min(blockSize,  # if block ends in hann win

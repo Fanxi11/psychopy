@@ -25,7 +25,7 @@ movie is long then audio will be huge and currently the whole thing gets
 """
 
 # Part of the PsychoPy library
-# Copyright (C) 2015 Jonathan Peirce
+# Copyright (C) 2018 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, division, print_function
@@ -38,7 +38,7 @@ import os
 from psychopy import logging, prefs #adding prefs to be able to check sound lib -JK
 from psychopy.tools.arraytools import val2array
 from psychopy.tools.attributetools import logAttrib, setAttribute
-from psychopy.visual.basevisual import BaseVisualStim, ContainerMixin
+from psychopy.visual.basevisual import BaseVisualStim, ContainerMixin, TextureMixin
 
 from moviepy.video.io.VideoFileClip import VideoFileClip
 
@@ -50,7 +50,7 @@ from psychopy.constants import FINISHED, NOT_STARTED, PAUSED, PLAYING, STOPPED
 import pyglet.gl as GL
 
 
-class MovieStim3(BaseVisualStim, ContainerMixin):
+class MovieStim3(BaseVisualStim, ContainerMixin, TextureMixin):
     """A stimulus class for playing movies (mpeg, avi, etc...) in PsychoPy
     that does not require avbin. Instead it requires the cv2 python package
     for OpenCV. The VLC media player also needs to be installed on the
@@ -263,6 +263,7 @@ class MovieStim3(BaseVisualStim, ContainerMixin):
                 self.win.logOnFlip("Set %s stopped" % (self.name),
                                    level=logging.EXP, obj=self)
 
+
     def setVolume(self, volume):
         pass  # to do
 
@@ -374,7 +375,7 @@ class MovieStim3(BaseVisualStim, ContainerMixin):
         GL.glTexEnvi(GL.GL_TEXTURE_ENV, GL.GL_TEXTURE_ENV_MODE,
                      GL.GL_MODULATE)  # ?? do we need this - think not!
 
-        if not self.status == PAUSED:
+        if self.status == PLAYING:
             self._nextFrameT += self._frameInterval
 
     def draw(self, win=None):
@@ -467,13 +468,14 @@ class MovieStim3(BaseVisualStim, ContainerMixin):
         return self._audio_stream_clock.getTime()
 
     def _unload(self):
-        try:
-            # remove textures from graphics card to prevent crash
-            self.clearTextures()
-        except Exception:
-            pass
+        # remove textures from graphics card to prevent crash
+        self.clearTextures()
+        if self._mov is not None:
+            self._mov.close()
         self._mov = None
         self._numpyFrame = None
+        if self._audioStream is not None:
+            self._audioStream.stop()
         self._audioStream = None
         self.status = FINISHED
 
