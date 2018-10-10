@@ -12,7 +12,8 @@ from __future__ import absolute_import, print_function
 from builtins import str
 from past.builtins import unicode
 try:
-    from PyQt4 import QtGui as QtWidgets  # in qt4 these were all in one package
+    from PyQt4 import QtGui
+    QtWidgets = QtGui  # in qt4 these were all in one package. We want *both* names
     from PyQt4.QtCore import Qt
 except ImportError:
     from PyQt5 import QtWidgets
